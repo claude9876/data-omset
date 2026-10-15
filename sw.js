@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shopee-sales-v2';
+const CACHE_NAME = 'shopee-sales-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
