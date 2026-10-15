@@ -15,9 +15,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- Library untuk Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- Library untuk Grafik -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -84,21 +82,24 @@ table{border-collapse:collapse; width:100%; font-size:12.5px;}
 th,td{padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
 th{color:var(--muted); font-weight:normal; font-size:11px;}
 tr:nth-child(even){background:var(--surface2);}
-tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color:var(--text);}
+tfoot tr td{font-weight:bold; background:var(--surface2); font-size:13px; color:var(--text);}
 .badge{padding:2px 7px; border-radius:20px; font-size:11px;}
 .badge.Selesai{background:var(--success-bg); color:var(--success);}
 .badge.Retur{background:var(--danger-bg); color:var(--danger);}
 .badge.Dibatalkan{background:var(--surface2); color:var(--muted);}
 .warn{color:var(--warn-text); font-size:11px;}
-.del{background:none; border:none; color:var(--danger); cursor:pointer; font-size:15px; padding:2px 6px;}
+/* FIX: tap target del lebih besar di mobile */
+.del{background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px;
+     padding:4px 8px; min-width:32px; min-height:32px; line-height:1;}
 .msg{font-size:12px; color:var(--muted);}
+.msg.ok{color:var(--success);}
+.msg.err{color:var(--danger);}
 .empty{color:var(--muted); font-size:13px; padding:10px 0;}
 .loading{color:var(--muted); font-size:13px; padding:10px 0; font-style:italic;}
 #statusBar{font-size:11px; color:var(--muted); margin-top:4px;}
 #statusBar.ok{color:var(--success);}
 #statusBar.err{color:var(--danger);}
-/* Styling untuk area grafik agar responsif */
-.chart-container { position: relative; height: 350px; width: 100%; margin-top: 20px; }
+.chart-container{position:relative; height:350px; width:100%; margin-top:20px;}
 </style>
 </head>
 <body>
@@ -113,7 +114,6 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
   </nav>
 </header>
 <main>
-  <div id="bannerWrap"></div>
   <div id="installBanner" style="display:none; background:var(--accent); color:#fff; padding:10px 14px; border-radius:9px; margin-bottom:14px; align-items:center; gap:10px; flex-wrap:wrap;">
     <span style="flex:1; font-size:13px;">📲 Pasang aplikasi ini di layar utama agar bisa dipakai offline.</span>
     <button id="btnInstall" style="background:#fff; color:var(--accent); border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:bold; cursor:pointer;">Pasang</button>
@@ -155,14 +155,15 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     <div class="card">
       <h2>Tambah Transaksi Manual</h2>
       <div class="grid">
-        <div><label>No. Pesanan</label><input id="t_no" placeholder="SP2610..."></div>
-        <div><label>Produk</label><input id="t_produk" list="dl_produk" required></div>
-        <div><label>Variasi</label><input id="t_variasi" list="dl_variasi"></div>
-        <div><label>Ukuran</label><input id="t_ukuran" list="dl_ukuran"></div>
-        <div><label>Qty</label><input id="t_qty" type="number" min="1" value="1"></div>
-        <div><label>Harga Satuan Jual (Rp)</label><input id="t_harga" type="number" min="0"></div>
-        <div><label>HPP Satuan (Rp)</label><input id="t_hpp" type="number" min="0" placeholder="Kosong = Auto"></div>
-        <div><label>Biaya Admin Shopee (Rp)</label><input id="t_admin" type="number" min="0" value="0"></div>
+        <div><label>No. Pesanan</label><input id="t_no" placeholder="SP2610..." autocomplete="off"></div>
+        <div><label>Produk</label><input id="t_produk" list="dl_produk" required autocomplete="off"></div>
+        <div><label>Variasi</label><input id="t_variasi" list="dl_variasi" autocomplete="off"></div>
+        <div><label>Ukuran</label><input id="t_ukuran" list="dl_ukuran" autocomplete="off"></div>
+        <div><label>Qty</label><input id="t_qty" type="number" inputmode="numeric" min="1" value="1"></div>
+        <div><label>Harga Satuan Jual (Rp)</label><input id="t_harga" type="number" inputmode="numeric" min="0"></div>
+        <!-- FIX: placeholder diperbarui agar lebih jelas -->
+        <div><label>HPP Satuan (Rp)</label><input id="t_hpp" type="number" inputmode="numeric" min="0" placeholder="Otomatis dari Master"></div>
+        <div><label>Biaya Admin Shopee (Rp)</label><input id="t_admin" type="number" inputmode="numeric" min="0" value="0"></div>
         <div><label>Status</label>
           <select id="t_status">
             <option>Selesai</option><option>Retur</option><option>Dibatalkan</option>
@@ -177,6 +178,11 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
 
     <div class="card">
       <h2>Transaksi Tanggal Ini</h2>
+      <!-- FIX: Tombol baru untuk menghitung ulang HPP yang kosong -->
+      <div class="row-actions" style="margin-top:0; margin-bottom:8px;">
+        <button class="btn secondary" id="btnRecalcHpp">🔄 Hitung Ulang HPP</button>
+        <span class="msg" id="recalc_msg"></span>
+      </div>
       <div class="tablewrap">
         <table id="tblT">
           <thead>
@@ -188,9 +194,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
           <tbody>
             <tr><td colspan="10" class="loading">Memuat data…</td></tr>
           </tbody>
-          <tfoot>
-            <!-- Footer untuk total semuanya -->
-          </tfoot>
+          <tfoot></tfoot>
         </table>
       </div>
       <div class="row-actions">
@@ -204,10 +208,10 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     <div class="card">
       <h2>Tambah / Perbarui Master HPP</h2>
       <div class="grid">
-        <div><label>Nama Produk</label><input id="m_produk" required list="dl_produk"></div>
-        <div><label>Variasi</label><input id="m_variasi" list="dl_variasi"></div>
-        <div><label>Ukuran</label><input id="m_ukuran" list="dl_ukuran"></div>
-        <div><label>HPP per Unit (Rp)</label><input id="m_hpp" type="number" min="0"></div>
+        <div><label>Nama Produk</label><input id="m_produk" required list="dl_produk" autocomplete="off"></div>
+        <div><label>Variasi</label><input id="m_variasi" list="dl_variasi" autocomplete="off"></div>
+        <div><label>Ukuran</label><input id="m_ukuran" list="dl_ukuran" autocomplete="off"></div>
+        <div><label>HPP per Unit (Rp)</label><input id="m_hpp" type="number" inputmode="numeric" min="0"></div>
       </div>
       <div class="row-actions">
         <button class="btn" id="btnSimpanM">Simpan HPP</button>
@@ -230,7 +234,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
       <h2>Biaya Iklan Shopee Ads Harian</h2>
       <div class="grid">
         <div><label>Tanggal</label><input id="a_tgl" type="date" required></div>
-        <div><label>Biaya Iklan (Rp)</label><input id="a_biaya" type="number" min="0"></div>
+        <div><label>Biaya Iklan (Rp)</label><input id="a_biaya" type="number" inputmode="numeric" min="0"></div>
       </div>
       <div class="row-actions">
         <button class="btn" id="btnSimpanA">Simpan</button>
@@ -245,7 +249,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     </div>
   </section>
 
-  <!-- TAB GRAFIK PENJUALAN -->
+  <!-- TAB GRAFIK -->
   <section id="tab-g" class="tab">
     <div class="card">
       <h2>Grafik Tren Penjualan</h2>
@@ -263,7 +267,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     </div>
   </section>
 
-  <!-- PERBAIKAN: Datalist dipindah keluar dari <section> agar tidak terkena bug saat disembunyikan di versi mobile -->
+  <!-- Datalist di luar section agar konsisten di semua browser HP -->
   <datalist id="dl_produk"></datalist>
   <datalist id="dl_variasi"></datalist>
   <datalist id="dl_ukuran"></datalist>
@@ -274,664 +278,841 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
 </main>
 
 <script>
-// === SUPABASE CONFIG ===
+// ============================================================
+// SUPABASE CONFIG — JANGAN DIUBAH
+// ============================================================
 const SUPABASE_URL = 'https://filmzkgeoqriaonftsmm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_jIPOL2AGoX5DTAHKz4BATA_chT8PFZg';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// === STATE ===
+// ============================================================
+// STATE
+// ============================================================
 let masterList = [], masterMap = {};
 let dayRows = [];
-let orderChartInst = null; 
+let orderChartInst = null;
 
-// === UTILS ===
-function localDateStr(dateObj) {
-  return dateObj.getFullYear()+'-'+String(dateObj.getMonth()+1).padStart(2,'0')+'-'+String(dateObj.getDate()).padStart(2,'0');
+// ============================================================
+// UTILS
+// ============================================================
+function localDateStr(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
 }
-function todayStr(){
-  return localDateStr(new Date());
+function todayStr() { return localDateStr(new Date()); }
+
+function rupiah(n) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency', currency: 'IDR', minimumFractionDigits: 0
+  }).format(n || 0);
 }
-function rupiah(n){
-  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n||0);
+
+function esc(s) {
+  return (s == null ? '' : String(s))
+    .replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
-function esc(s){
-  return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function keyOf(p, v, u) {
+  return (p||'').trim().toLowerCase() + '|' +
+         (v||'').trim().toLowerCase() + '|' +
+         (u||'').trim().toLowerCase();
 }
-function keyOf(p,v,u){ 
-  return (p||'').trim().toLowerCase()+'|'+(v||'').trim().toLowerCase()+'|'+(u||'').trim().toLowerCase(); 
-}
+
+// ============================================================
+// FIX #1 — parseMoney
+// Bug lama: `if (val < 10000) return val * 1000` menyebabkan
+// harga produk di bawah Rp 10.000 jadi ×1000 (misal Rp 5.000
+// menjadi Rp 5.000.000). Baris itu sudah dihapus.
+// ============================================================
 function parseMoney(val) {
+  if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') {
-    if (val < 100000 && !Number.isInteger(val)) return Math.round(val * 1000);
-    if (val < 10000) return val * 1000;
-    return val;
+    // Edge case: nilai desimal kecil dari Excel (misal 15.5 = Rp 15.500)
+    if (!Number.isInteger(val) && val < 100000) return Math.round(val * 1000);
+    return Math.round(val);
   }
+  // String — hapus semua non-digit (handles "Rp 15.000", "15,000", dll.)
   return parseInt(String(val).replace(/[^0-9]/g, '')) || 0;
 }
 
-function setStatus(msg, type=''){
+// ============================================================
+// FIX #2 — parseExcelDate
+// Fungsi baru untuk menangani tanggal dari Excel yang bisa berupa:
+// - JS Date object (ketika XLSX.read pakai cellDates: true)
+// - Angka serial Excel (misal 45306)
+// - String "2024-01-15 10:30:00" atau "15/01/2024"
+// ============================================================
+function parseExcelDate(val) {
+  if (!val) return todayStr();
+  // JS Date object — dari XLSX.read({cellDates:true})
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? todayStr() : localDateStr(val);
+  }
+  // Angka serial Excel → Unix timestamp
+  if (typeof val === 'number') {
+    const d = new Date((val - 25569) * 86400000);
+    return isNaN(d.getTime()) ? todayStr() : localDateStr(d);
+  }
+  const str = String(val).trim();
+  // Format YYYY-MM-DD (sudah benar)
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+  // Format DD/MM/YYYY atau D/M/YYYY
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  // Fallback: ambil bagian pertama sebelum spasi
+  return str.split(/[\sT]/)[0] || todayStr();
+}
+
+function setStatus(msg, type = '') {
   const el = document.getElementById('statusBar');
   el.textContent = msg; el.className = type;
 }
-function flashMsg(id, msg, ms=2000){
+
+function flashMsg(id, msg, cls = '', ms = 2500) {
   const el = document.getElementById(id);
-  if(!el) return;
+  if (!el) return;
   el.textContent = msg;
-  setTimeout(()=>el.textContent='', ms);
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+  setTimeout(() => { el.textContent = ''; el.className = 'msg'; }, ms);
 }
 
-// Helper untuk cari HPP
+// Cari HPP dari master: coba exact match dulu, fallback ke nama produk saja
 function findHpp(produk, variasi = '', ukuran = '') {
   const exact = masterMap[keyOf(produk, variasi, ukuran)];
   if (exact) return exact.hpp || 0;
-  const m = masterList.find(x => String(x.produk).toLowerCase() === String(produk).toLowerCase());
+  const m = masterList.find(x =>
+    String(x.produk || '').trim().toLowerCase() === String(produk || '').trim().toLowerCase()
+  );
   return m ? (m.hpp || 0) : 0;
 }
 
-// === NAV ===
-document.querySelectorAll('nav button').forEach(b=>{
-  b.onclick=()=>{
-    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+// ============================================================
+// NAV
+// ============================================================
+document.querySelectorAll('nav button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
-    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
-    
-    // Jika tab grafik ditekan dan grafik belum diload, load otomatis
-    if(b.dataset.tab === 'g' && !orderChartInst) {
-       loadChartData();
-    }
+    document.getElementById('tab-' + b.dataset.tab).classList.add('active');
+    // Auto-load grafik saat tab dibuka (tanggal sudah diisi oleh init)
+    if (b.dataset.tab === 'g') loadChartData();
   };
 });
 
-// === MASTER HPP ===
-async function loadMaster(){
+// ============================================================
+// MASTER HPP
+// ============================================================
+async function loadMaster() {
   const {data, error} = await sb.from('masterhpp').select('*').order('produk');
-  if(error){ setStatus('Gagal memuat Master HPP: '+error.message,'err'); return; }
+  if (error) { setStatus('Gagal memuat Master HPP: ' + error.message, 'err'); return; }
   masterList = data || [];
   masterMap = {};
-  masterList.forEach(m=>{ masterMap[keyOf(m.produk,m.variasi,m.ukuran)] = m; });
+  masterList.forEach(m => { masterMap[keyOf(m.produk, m.variasi, m.ukuran)] = m; });
   renderMasterTable();
-  
-  const dp=document.getElementById('dl_produk'), dv=document.getElementById('dl_variasi'), du=document.getElementById('dl_ukuran');
-  const uniq=arr=>[...new Set(arr.filter(Boolean))];
-  
-  // PERBAIKAN: Menggabungkan pilihan produk standar dengan produk yang ditarik dari database Master HPP
-  const defaultProduk = ['Blouse Polkadot Terbaru', 'Kemeja Polkadot'];
-  const dbProduk = masterList.map(m => m.produk);
-  const allProduk = uniq([...defaultProduk, ...dbProduk]);
 
-  // Penulisan tag HTML `<option></option>` yang aman agar kompatibel di semua browser HP
+  const dp = document.getElementById('dl_produk');
+  const dv = document.getElementById('dl_variasi');
+  const du = document.getElementById('dl_ukuran');
+  const uniq = arr => [...new Set(arr.filter(Boolean))];
+
+  const defaultProduk = ['Blouse Polkadot Terbaru', 'Kemeja Polkadot'];
+  const allProduk = uniq([...defaultProduk, ...masterList.map(m => m.produk)]);
+
   dp.innerHTML = allProduk.map(v => `<option value="${esc(v)}"></option>`).join('');
-  dv.innerHTML = uniq(masterList.map(m=>m.variasi)).map(v=>`<option value="${esc(v)}"></option>`).join('');
-  du.innerHTML = uniq(masterList.map(m=>m.ukuran)).map(v=>`<option value="${esc(v)}"></option>`).join('');
+  dv.innerHTML = uniq(masterList.map(m => m.variasi)).map(v => `<option value="${esc(v)}"></option>`).join('');
+  du.innerHTML = uniq(masterList.map(m => m.ukuran)).map(v => `<option value="${esc(v)}"></option>`).join('');
 }
 
-function renderMasterTable(){
+function renderMasterTable() {
   const tb = document.querySelector('#tblM tbody');
-  if(!masterList.length){
-    tb.innerHTML='<tr><td colspan="5" class="empty">Belum ada data HPP</td></tr>'; return;
+  if (!masterList.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">Belum ada data HPP</td></tr>'; return;
   }
-  tb.innerHTML = masterList.map(m=>`<tr>
+  tb.innerHTML = masterList.map(m => `<tr>
     <td>${esc(m.produk)}</td><td>${esc(m.variasi)}</td><td>${esc(m.ukuran)}</td>
     <td>${rupiah(m.hpp)}</td>
-    <td><button class="del" onclick="deleteMaster('${m.id}')">&times;</button></td>
+    <td><button class="del" onclick="deleteMaster('${m.id}')" title="Hapus">&times;</button></td>
   </tr>`).join('');
 }
 
-async function deleteMaster(id){
-  if(!confirm('Hapus data HPP ini?')) return;
+async function deleteMaster(id) {
+  if (!confirm('Hapus data HPP ini?')) return;
   const {error} = await sb.from('masterhpp').delete().eq('id', id);
-  if(error){ alert('Gagal hapus: '+error.message); return; }
+  if (error) { alert('Gagal hapus: ' + error.message); return; }
   await loadMaster();
   await loadDay(document.getElementById('selDate').value);
 }
 
-document.getElementById('btnSimpanM').addEventListener('click', async ()=>{
-  const produk = document.getElementById('m_produk').value.trim();
+document.getElementById('btnSimpanM').addEventListener('click', async () => {
+  const produk  = document.getElementById('m_produk').value.trim();
   const variasi = document.getElementById('m_variasi').value.trim();
-  const ukuran = document.getElementById('m_ukuran').value.trim();
-  const hpp = Number(document.getElementById('m_hpp').value)||0;
-  if(!produk){ alert('Nama produk wajib diisi'); return; }
+  const ukuran  = document.getElementById('m_ukuran').value.trim();
+  const hpp     = Number(document.getElementById('m_hpp').value) || 0;
+  if (!produk) { alert('Nama produk wajib diisi'); return; }
+
   const k = keyOf(produk, variasi, ukuran);
   const existing = masterMap[k];
   let error;
-  if(existing){
+  if (existing) {
     ({error} = await sb.from('masterhpp').update({hpp}).eq('id', existing.id));
   } else {
     ({error} = await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp}));
   }
-  if(error){ alert('Gagal simpan: '+error.message); return; }
-  flashMsg('m_msg', 'Tersimpan.');
-  ['m_produk','m_variasi','m_ukuran','m_hpp'].forEach(id=>document.getElementById(id).value='');
+  if (error) { alert('Gagal simpan: ' + error.message); return; }
+
+  flashMsg('m_msg', 'Tersimpan ✓', 'ok');
+  ['m_produk', 'm_variasi', 'm_ukuran', 'm_hpp'].forEach(id => document.getElementById(id).value = '');
   await loadMaster();
 });
 
-// === TRANSAKSI ===
-async function loadDay(dateStr){
+// ============================================================
+// TRANSAKSI
+// ============================================================
+async function loadDay(dateStr) {
+  if (!dateStr) return;
   const {data, error} = await sb.from('transaksi')
     .select('*').eq('tanggal', dateStr).order('created_at');
-  if(error){ setStatus('Gagal memuat transaksi: '+error.message,'err'); return; }
+  if (error) { setStatus('Gagal memuat transaksi: ' + error.message, 'err'); return; }
   dayRows = data || [];
-  
+
   let adsBiaya = 0;
-  const {data: adData} = await sb.from('biayaharian').select('biaya_iklan').eq('tanggal', dateStr).maybeSingle();
-  if(adData) adsBiaya = adData.biaya_iklan || 0;
-  
+  const {data: adData} = await sb.from('biayaharian')
+    .select('biaya_iklan').eq('tanggal', dateStr).maybeSingle();
+  if (adData) adsBiaya = adData.biaya_iklan || 0;
+
   renderDayTable();
   renderSummary(adsBiaya);
-  setStatus('', '');
+  setStatus('');
 }
 
-function renderDayTable(){
+function renderDayTable() {
   const tb = document.querySelector('#tblT tbody');
   const tf = document.querySelector('#tblT tfoot');
-  
-  if(!dayRows.length){
-    tb.innerHTML='<tr><td colspan="10" class="empty">Belum ada transaksi di tanggal ini</td></tr>'; 
+
+  if (!dayRows.length) {
+    tb.innerHTML = '<tr><td colspan="10" class="empty">Belum ada transaksi di tanggal ini</td></tr>';
     tf.innerHTML = '';
     return;
   }
-  
+
   let sumQty = 0, sumJual = 0, sumHpp = 0, sumAdmin = 0, sumProfit = 0;
 
-  tb.innerHTML = dayRows.map(r=>{
-    const total = (r.qty||0)*(r.harga||0);
-    const hppTotal = (r.qty||0)*(r.hpp_satuan||0);
-    const profit = r.status==='Selesai' ? (total-hppTotal-(r.biaya_admin||0)) : 0;
-    const warn = r.hpp_satuan===0 ? ' <span class="warn">⚠ HPP belum ada</span>' : '';
-    
-    if(r.status === 'Selesai') {
-        sumQty += (r.qty||0);
-        sumJual += total;
-        sumHpp += hppTotal;
-        sumAdmin += (r.biaya_admin||0);
-        sumProfit += profit;
+  tb.innerHTML = dayRows.map(r => {
+    const total    = (r.qty || 0) * (r.harga || 0);
+    const hppTotal = (r.qty || 0) * (r.hpp_satuan || 0);
+    const profit   = r.status === 'Selesai' ? (total - hppTotal - (r.biaya_admin || 0)) : 0;
+    // FIX: cek null juga bukan hanya 0
+    const warn     = (!r.hpp_satuan && r.hpp_satuan !== undefined)
+      ? ' <span class="warn">⚠ HPP?</span>' : '';
+
+    if (r.status === 'Selesai') {
+      sumQty    += (r.qty || 0);
+      sumJual   += total;
+      sumHpp    += hppTotal;
+      sumAdmin  += (r.biaya_admin || 0);
+      sumProfit += profit;
     }
 
-    let varInfo = [];
-    if(r.variasi) varInfo.push(esc(r.variasi));
-    if(r.ukuran) varInfo.push(esc(r.ukuran));
-    const labelVar = varInfo.length ? varInfo.join('/') : '-';
+    const varParts = [r.variasi, r.ukuran].filter(Boolean).map(esc);
+    const labelVar = varParts.length ? varParts.join(' / ') : '-';
 
     return `<tr>
-      <td>${esc(r.no_pesanan)}</td><td>${esc(r.produk)}</td><td>${labelVar}${warn}</td>
-      <td>${r.qty}</td><td>${rupiah(total)}</td><td>${rupiah(hppTotal)}</td><td>${rupiah(r.biaya_admin)}</td>
-      <td><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td><td>${rupiah(profit)}</td>
-      <td><button class="del" onclick="deleteTransaksi('${r.id}')">&times;</button></td>
+      <td>${esc(r.no_pesanan)}</td>
+      <td>${esc(r.produk)}</td>
+      <td>${labelVar}${warn}</td>
+      <td>${r.qty}</td>
+      <td>${rupiah(total)}</td>
+      <td>${rupiah(hppTotal)}</td>
+      <td>${rupiah(r.biaya_admin)}</td>
+      <td><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td>
+      <td style="color:${profit < 0 ? 'var(--danger)' : ''}">${rupiah(profit)}</td>
+      <td><button class="del" onclick="deleteTransaksi('${r.id}')" title="Hapus">&times;</button></td>
     </tr>`;
   }).join('');
-  
-  tf.innerHTML = `
-    <tr>
-      <td colspan="3" style="text-align:right;">TOTAL (Transaksi Selesai):</td>
-      <td>${sumQty}</td>
-      <td>${rupiah(sumJual)}</td>
-      <td>${rupiah(sumHpp)}</td>
-      <td>${rupiah(sumAdmin)}</td>
-      <td></td>
-      <td style="color:${sumProfit < 0 ? 'var(--danger)' : 'var(--success)'}">${rupiah(sumProfit)}</td>
-      <td></td>
-    </tr>
-  `;
+
+  tf.innerHTML = `<tr>
+    <td colspan="3" style="text-align:right; font-size:11px; color:var(--muted);">TOTAL (Selesai):</td>
+    <td>${sumQty}</td>
+    <td>${rupiah(sumJual)}</td>
+    <td>${rupiah(sumHpp)}</td>
+    <td>${rupiah(sumAdmin)}</td>
+    <td></td>
+    <td style="color:${sumProfit < 0 ? 'var(--danger)' : 'var(--success)'}">${rupiah(sumProfit)}</td>
+    <td></td>
+  </tr>`;
 }
 
-function renderSummary(adsBiaya){
-  const selesai = dayRows.filter(r=>r.status==='Selesai');
-  const totalJual = selesai.reduce((s,r)=>s+(r.qty||0)*(r.harga||0),0);
-  const totalHpp = selesai.reduce((s,r)=>s+(r.qty||0)*(r.hpp_satuan||0),0);
-  const totalAdmin = selesai.reduce((s,r)=>s+(r.biaya_admin||0),0);
-  const retur = dayRows.filter(r=>r.status==='Retur').reduce((s,r)=>s+(r.qty||0)*(r.harga||0),0);
-  const profit = totalJual-totalHpp-totalAdmin-adsBiaya;
+function renderSummary(adsBiaya) {
+  const selesai   = dayRows.filter(r => r.status === 'Selesai');
+  const totalQty  = selesai.reduce((s, r) => s + (r.qty || 0), 0);
+  const totalJual = selesai.reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
+  const totalHpp  = selesai.reduce((s, r) => s + (r.qty || 0) * (r.hpp_satuan || 0), 0);
+  const totalAdmin= selesai.reduce((s, r) => s + (r.biaya_admin || 0), 0);
+  const retur     = dayRows.filter(r => r.status === 'Retur')
+                           .reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
+  const profit    = totalJual - totalHpp - totalAdmin - adsBiaya;
+
   document.getElementById('summaryBox').innerHTML = `
+    <div class="stat"><div class="lbl">Item Terjual</div><div class="val">${totalQty} pcs</div></div>
     <div class="stat"><div class="lbl">Total Penjualan</div><div class="val">${rupiah(totalJual)}</div></div>
     <div class="stat"><div class="lbl">Total HPP</div><div class="val">${rupiah(totalHpp)}</div></div>
     <div class="stat"><div class="lbl">Biaya Admin</div><div class="val">${rupiah(totalAdmin)}</div></div>
     <div class="stat"><div class="lbl">Biaya Iklan</div><div class="val">${rupiah(adsBiaya)}</div></div>
     <div class="stat"><div class="lbl">Nilai Retur</div><div class="val">${rupiah(retur)}</div></div>
-    <div class="stat profit ${profit<0?'neg':''}"><div class="lbl">Profit Bersih</div><div class="val">${rupiah(profit)}</div></div>
-  `;
+    <div class="stat profit ${profit < 0 ? 'neg' : ''}">
+      <div class="lbl">Profit Bersih</div><div class="val">${rupiah(profit)}</div>
+    </div>`;
 }
 
-async function deleteTransaksi(id){
-  if(!confirm('Hapus transaksi ini?')) return;
+async function deleteTransaksi(id) {
+  if (!confirm('Hapus transaksi ini?')) return;
   const {error} = await sb.from('transaksi').delete().eq('id', id);
-  if(error){ alert('Gagal hapus: '+error.message); return; }
+  if (error) { alert('Gagal hapus: ' + error.message); return; }
   await loadDay(document.getElementById('selDate').value);
 }
 
-document.getElementById('selDate').addEventListener('change', e=>loadDay(e.target.value));
+document.getElementById('selDate').addEventListener('change', e => loadDay(e.target.value));
 
+// ============================================================
+// FIX #3 — autoFillHpp
+// Bug lama: setiap kali variasi/ukuran diubah, HPP yang sudah
+// diisi manual ikut tertimpa. Sekarang hanya mengisi jika field
+// HPP masih kosong.
+// ============================================================
 function autoFillHpp() {
-    const p = document.getElementById('t_produk').value.trim();
-    const v = document.getElementById('t_variasi').value.trim();
-    const u = document.getElementById('t_ukuran').value.trim();
-    const h = findHpp(p, v, u);
-    document.getElementById('t_hpp').value = h > 0 ? h : '';
+  const hppField = document.getElementById('t_hpp');
+  if (hppField.value !== '') return; // Jangan timpa input manual
+  const p = document.getElementById('t_produk').value.trim();
+  const v = document.getElementById('t_variasi').value.trim();
+  const u = document.getElementById('t_ukuran').value.trim();
+  if (!p) return;
+  const h = findHpp(p, v, u);
+  if (h > 0) hppField.value = h;
 }
+
+// Saat produk diganti → reset HPP supaya auto-fill berjalan untuk produk baru
+document.getElementById('t_produk').addEventListener('change', () => {
+  document.getElementById('t_hpp').value = '';
+  autoFillHpp();
+});
 document.getElementById('t_produk').addEventListener('input', autoFillHpp);
 document.getElementById('t_variasi').addEventListener('input', autoFillHpp);
 document.getElementById('t_ukuran').addEventListener('input', autoFillHpp);
 
-document.getElementById('btnSimpanT').addEventListener('click', async ()=>{
-  const tanggal = document.getElementById('selDate').value || todayStr();
-  const produk = document.getElementById('t_produk').value.trim();
-  const variasi = document.getElementById('t_variasi').value.trim();
-  const ukuran = document.getElementById('t_ukuran').value.trim();
-  const qty = Number(document.getElementById('t_qty').value)||0;
-  const harga = Number(document.getElementById('t_harga').value)||0;
-  const status = document.getElementById('t_status').value;
-  const biaya_admin = Number(document.getElementById('t_admin').value)||0;
-  const no_pesanan = document.getElementById('t_no').value.trim();
-  const inputHpp = Number(document.getElementById('t_hpp').value)||0;
-  
-  if(!produk || qty<=0){ alert('Produk dan Qty wajib diisi'); return; }
-  
-  let hpp_satuan = inputHpp;
-  
-  if(inputHpp > 0) {
+document.getElementById('btnSimpanT').addEventListener('click', async () => {
+  const btn = document.getElementById('btnSimpanT');
+  btn.disabled = true;
+  try {
+    const tanggal     = document.getElementById('selDate').value || todayStr();
+    const produk      = document.getElementById('t_produk').value.trim();
+    const variasi     = document.getElementById('t_variasi').value.trim();
+    const ukuran      = document.getElementById('t_ukuran').value.trim();
+    const qty         = Number(document.getElementById('t_qty').value) || 0;
+    const harga       = Number(document.getElementById('t_harga').value) || 0;
+    const status      = document.getElementById('t_status').value;
+    const biaya_admin = Number(document.getElementById('t_admin').value) || 0;
+    const no_pesanan  = document.getElementById('t_no').value.trim();
+    const inputHpp    = Number(document.getElementById('t_hpp').value) || 0;
+
+    if (!produk || qty <= 0) { alert('Produk dan Qty wajib diisi'); return; }
+    if (harga <= 0 && status === 'Selesai') {
+      if (!confirm('Harga 0. Tetap simpan?')) return;
+    }
+
+    let hpp_satuan = inputHpp;
+
+    if (inputHpp > 0) {
+      // Jika HPP berbeda dari master, update master sekaligus
       const existingHpp = findHpp(produk, variasi, ukuran);
-      if(existingHpp !== inputHpp) {
-          const k = keyOf(produk, variasi, ukuran);
-          const existMaster = masterMap[k];
-          if(existMaster) {
-              await sb.from('masterhpp').update({hpp: inputHpp}).eq('id', existMaster.id);
-          } else {
-              await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp: inputHpp});
-          }
-          await loadMaster(); 
+      if (existingHpp !== inputHpp) {
+        const k = keyOf(produk, variasi, ukuran);
+        const existMaster = masterMap[k];
+        if (existMaster) {
+          await sb.from('masterhpp').update({hpp: inputHpp}).eq('id', existMaster.id);
+        } else {
+          await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp: inputHpp});
+        }
+        await loadMaster();
       }
-  } else {
+    } else {
       hpp_satuan = findHpp(produk, variasi, ukuran);
+    }
+
+    const {error} = await sb.from('transaksi').insert({
+      tanggal, no_pesanan, produk, variasi, ukuran, qty, harga, status, biaya_admin, hpp_satuan
+    });
+    if (error) { alert('Gagal simpan: ' + error.message); return; }
+
+    flashMsg('t_msg',
+      hpp_satuan > 0 ? 'Tersimpan ✓' : 'Tersimpan (HPP belum ada — cek Master HPP)',
+      hpp_satuan > 0 ? 'ok' : 'err', 3000);
+
+    ['t_no', 't_produk', 't_variasi', 't_ukuran', 't_harga', 't_hpp']
+      .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('t_qty').value = 1;
+    document.getElementById('t_admin').value = 0;
+    document.getElementById('t_status').value = 'Selesai';
+    document.getElementById('t_produk').focus();
+    await loadDay(tanggal);
+  } finally {
+    btn.disabled = false;
   }
-  
-  const {error} = await sb.from('transaksi').insert({
-    tanggal, no_pesanan, produk, variasi, ukuran, qty, harga, status, biaya_admin, hpp_satuan
-  });
-  if(error){ alert('Gagal simpan: '+error.message); return; }
-  
-  flashMsg('t_msg', hpp_satuan > 0 ? 'Tersimpan & HPP Diupdate.' : 'Tersimpan (Tanpa HPP).');
-  
-  ['t_no','t_produk','t_variasi','t_ukuran','t_harga','t_hpp'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('t_qty').value=1;
-  document.getElementById('t_admin').value=0;
-  document.getElementById('t_status').value='Selesai';
-  document.getElementById('t_produk').focus();
-  await loadDay(tanggal);
 });
 
-// === IMPORT EXCEL ===
+// ============================================================
+// FIX #4 — Tombol Hitung Ulang HPP
+// Update semua transaksi di tanggal aktif yang hpp_satuan-nya
+// 0/null menggunakan data Master HPP terkini.
+// ============================================================
+document.getElementById('btnRecalcHpp').addEventListener('click', async () => {
+  const dateStr = document.getElementById('selDate').value;
+  if (!dateStr) { alert('Pilih tanggal terlebih dahulu'); return; }
+
+  const zeroRows = dayRows.filter(r => (!r.hpp_satuan || r.hpp_satuan === 0) && r.produk);
+  if (!zeroRows.length) {
+    flashMsg('recalc_msg', 'Semua HPP sudah terisi ✓', 'ok'); return;
+  }
+
+  let updated = 0;
+  for (const r of zeroRows) {
+    const hpp = findHpp(r.produk, r.variasi, r.ukuran);
+    if (hpp > 0) {
+      const {error} = await sb.from('transaksi').update({hpp_satuan: hpp}).eq('id', r.id);
+      if (!error) updated++;
+    }
+  }
+
+  if (updated > 0) {
+    flashMsg('recalc_msg', `${updated} transaksi HPP diperbarui ✓`, 'ok', 3000);
+    await loadDay(dateStr);
+  } else {
+    flashMsg('recalc_msg', 'Tidak ada HPP cocok. Isi dulu di tab Master HPP.', 'err', 4000);
+  }
+});
+
+// ============================================================
+// IMPORT EXCEL
+// FIX #5 — cellDates:true agar tanggal Excel diparsing benar
+// FIX #6 — income file: baca qty dari kolom "Jumlah"
+// FIX #7 — cek duplikat no_pesanan sebelum insert
+// ============================================================
 document.getElementById('btnUploadExcel').addEventListener('click', () => {
   const fileInput = document.getElementById('fileExcel');
-  if (!fileInput.files.length) {
-    alert('Pilih file Excel terlebih dahulu!');
-    return;
-  }
-  const file = fileInput.files[0];
-  const reader = new FileReader();
-  
+  if (!fileInput.files.length) { alert('Pilih file Excel terlebih dahulu!'); return; }
+
+  const file    = fileInput.files[0];
+  const reader  = new FileReader();
+  const msgEl   = document.getElementById('excel_msg');
+
   reader.onload = async (e) => {
     try {
-      setStatus('Membaca file Excel...', 'msg');
+      msgEl.textContent = 'Membaca file…'; msgEl.className = 'msg';
+
       const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      
-      let sheetName = workbook.SheetNames.find(s => String(s).toLowerCase().includes('penghasilan'));
-      if (!sheetName) sheetName = workbook.SheetNames[0]; 
-      
-      const sheet = workbook.Sheets[sheetName];
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      
-      let headerIdx = -1;
-      let fileType = ''; 
-      
+      // FIX: tambah cellDates:true agar sel tanggal di-parse sebagai JS Date
+      const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+
+      let sheetName = workbook.SheetNames.find(
+        s => String(s).toLowerCase().includes('penghasilan')
+      );
+      if (!sheetName) sheetName = workbook.SheetNames[0];
+
+      const sheet   = workbook.Sheets[sheetName];
+      const rawRows = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ''});
+
+      let headerIdx = -1, fileType = '';
       for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
         const rowStr = rawRows[i].map(x => String(x).trim());
         if (rowStr.includes('No. Pesanan') && rowStr.includes('Total Penghasilan')) {
           headerIdx = i; fileType = 'income'; break;
         }
-        if (rowStr.includes('No. Pesanan') && (rowStr.includes('Status Pesanan') || rowStr.includes('Waktu Pesanan Dibuat'))) {
+        if (rowStr.includes('No. Pesanan') &&
+           (rowStr.includes('Status Pesanan') || rowStr.includes('Waktu Pesanan Dibuat'))) {
           headerIdx = i; fileType = 'order'; break;
         }
       }
-      
+
       if (headerIdx === -1) {
-        alert('Format file tidak dikenali. Pastikan ini adalah file Order atau Penghasilan dari Shopee.');
-        setStatus(''); return;
+        alert('Format file tidak dikenali. Pastikan file Order atau Penghasilan dari Shopee.');
+        msgEl.textContent = ''; return;
       }
-      
-      const rows = XLSX.utils.sheet_to_json(sheet, { range: headerIdx, defval: '' });
+
+      const rows = XLSX.utils.sheet_to_json(sheet, {range: headerIdx, defval: '', cellDates: true});
       const transactions = [];
-      
+
+      // --- INCOME FILE ---
       if (fileType === 'income') {
         rows.forEach(row => {
-          const lihat = String(row['Lihat berdasarkan'] || '').toLowerCase();
+          const lihat     = String(row['Lihat berdasarkan'] || '').toLowerCase().trim();
           const noPesanan = row['No. Pesanan'];
-          if (!noPesanan || lihat !== 'sku') return; 
-          
-          const tanggalStr = row['Waktu Pesanan Dibuat'] || '';
-          const tanggal = String(tanggalStr).split(' ')[0] || todayStr();
-          const produk = String(row['Nama Produk'] || '').trim();
-          
-          const harga = parseMoney(row['Harga Produk']);
-          const penghasilan = parseMoney(row['Total Penghasilan']);
+          if (!noPesanan || lihat !== 'sku') return;
+
+          // FIX: gunakan parseExcelDate
+          const tanggal = parseExcelDate(row['Waktu Pesanan Dibuat']);
+          const produk  = String(row['Nama Produk'] || '').trim();
+          if (!produk) return;
+
+          // FIX: baca qty dari kolom "Jumlah" jika ada
+          const qty        = parseInt(row['Jumlah'] || row['Qty'] || 1) || 1;
+          const hargaTotal = parseMoney(row['Harga Produk']);
+          // Hitung harga satuan dari total ÷ qty
+          const hargaSatuan = qty > 1 ? Math.round(hargaTotal / qty) : hargaTotal;
+
+          const penghasilan  = parseMoney(row['Total Penghasilan']);
           const pengembalian = parseMoney(row['Jumlah Pengembalian Dana ke Pembeli']);
-          
+
           let status = 'Selesai';
-          if (pengembalian < 0 || penghasilan < 0) status = 'Retur';
-          
+          if (pengembalian > 0 || penghasilan <= 0) status = 'Retur';
+
           let potonganAdmin = 0;
           if (status === 'Selesai') {
-            potonganAdmin = harga - penghasilan;
+            potonganAdmin = hargaTotal - penghasilan;
             if (potonganAdmin < 0) potonganAdmin = 0;
           }
-          
+
           const hpp_satuan = findHpp(produk);
-          
+
           transactions.push({
-            tanggal: tanggal, no_pesanan: noPesanan, produk: produk, variasi: '', ukuran: '',
-            qty: 1, harga: harga, status: status, biaya_admin: potonganAdmin, hpp_satuan: hpp_satuan
+            tanggal, no_pesanan: String(noPesanan), produk,
+            variasi: '', ukuran: '', qty,
+            harga: hargaSatuan, status, biaya_admin: potonganAdmin, hpp_satuan
           });
         });
-        
+
+      // --- ORDER FILE ---
       } else if (fileType === 'order') {
         rows.forEach(row => {
           const noPesanan = row['No. Pesanan'];
           if (!noPesanan) return;
-          
-          const waktuDibuat = row['Waktu Pesanan Dibuat'] || '';
-          const tanggal = String(waktuDibuat).split(' ')[0] || todayStr();
-          
-          const produk = row['Nama Produk'] || '';
-          const rawVariasi = row['Nama Variasi'] || '';
-          let variasi = rawVariasi;
-          let ukuran = '';
+
+          // FIX: gunakan parseExcelDate
+          const tanggal = parseExcelDate(row['Waktu Pesanan Dibuat']);
+          const produk  = String(row['Nama Produk'] || '').trim();
+          if (!produk) return;
+
+          const rawVariasi = String(row['Nama Variasi'] || '').trim();
+          let variasi = rawVariasi, ukuran = '';
           if (rawVariasi.includes(',')) {
             const parts = rawVariasi.split(',');
-            ukuran = parts.pop().trim();
+            ukuran  = parts.pop().trim();
             variasi = parts.join(',').trim();
           }
-          
-          const qty = parseInt(row['Jumlah']) || 1;
-          const harga = parseMoney(row['Harga Setelah Diskon']);
-          const subtotal = parseMoney(row['Subtotal Pesanan']);
+
+          const qty        = parseInt(row['Jumlah']) || 1;
+          const harga      = parseMoney(row['Harga Setelah Diskon'] || row['Harga Produk']);
+          const subtotal   = parseMoney(row['Subtotal Pesanan']);
           const totalBayar = parseMoney(row['Total Pembayaran']);
-          
+
           let potonganAdmin = 0;
-          if (subtotal > 0 && totalBayar > 0) {
-             potonganAdmin = subtotal - totalBayar;
-             if (potonganAdmin < 0) potonganAdmin = 0;
+          if (subtotal > 0 && totalBayar > 0 && subtotal > totalBayar) {
+            potonganAdmin = subtotal - totalBayar;
           }
-  
+
           const rawStatus = String(row['Status Pesanan'] || '').toLowerCase();
           let status = 'Selesai';
           if (rawStatus.includes('batal')) status = 'Dibatalkan';
           else if (rawStatus.includes('retur') || rawStatus.includes('pengembalian')) status = 'Retur';
-          
+
           const hpp_satuan = findHpp(produk, variasi, ukuran);
-          
+
           transactions.push({
-            tanggal, no_pesanan: noPesanan, produk, variasi, ukuran,
+            tanggal, no_pesanan: String(noPesanan), produk, variasi, ukuran,
             qty, harga, status, biaya_admin: potonganAdmin, hpp_satuan
           });
         });
       }
-      
-      if (transactions.length > 0) {
-        setStatus(`Menyimpan ${transactions.length} data (${fileType}) ke database...`, 'msg');
-        
-        const { error } = await sb.from('transaksi').insert(transactions);
-        if (error) {
-          alert('Gagal simpan: ' + error.message);
-          setStatus('Gagal import.', 'err');
-        } else {
-          alert(`Berhasil import ${transactions.length} transaksi dari file ${fileType === 'income' ? 'Penghasilan' : 'Order'}!`);
-          setStatus('Import selesai.', 'ok');
-          document.getElementById('fileExcel').value = '';
-          
-          const tglLoad = transactions[0].tanggal;
-          document.getElementById('selDate').value = tglLoad;
-          await loadDay(tglLoad);
-        }
+
+      if (!transactions.length) {
+        alert('Tidak ada data valid untuk diimport dari file ini.');
+        msgEl.textContent = ''; return;
+      }
+
+      // FIX #7: cek duplikat — filter no_pesanan yang sudah ada di tanggal yg sama
+      msgEl.textContent = `Memeriksa ${transactions.length} baris data…`;
+      const uniqueDates = [...new Set(transactions.map(t => t.tanggal))];
+      const {data: existingTx} = await sb.from('transaksi')
+        .select('no_pesanan').in('tanggal', uniqueDates);
+      const existingNos = new Set((existingTx || []).map(r => String(r.no_pesanan)));
+      const newTx   = transactions.filter(t => !existingNos.has(String(t.no_pesanan)));
+      const dupCount = transactions.length - newTx.length;
+
+      if (!newTx.length) {
+        alert('Semua data sudah ada di database. Tidak ada yang baru diimport.');
+        msgEl.textContent = ''; return;
+      }
+
+      msgEl.textContent =
+        `Menyimpan ${newTx.length} data${dupCount > 0 ? ` (${dupCount} dilewati karena duplikat)` : ''}…`;
+
+      const {error} = await sb.from('transaksi').insert(newTx);
+      if (error) {
+        alert('Gagal simpan: ' + error.message);
+        msgEl.textContent = ''; msgEl.className = 'msg err';
+        msgEl.textContent = '❌ Gagal import';
       } else {
-        alert('Tidak ada data transaksi yang valid untuk diimport pada file ini.');
-        setStatus('');
+        const tipe   = fileType === 'income' ? 'Penghasilan' : 'Order';
+        let pesan    = `✓ Import ${tipe}: ${newTx.length} transaksi disimpan`;
+        if (dupCount > 0) pesan += `, ${dupCount} dilewati (duplikat)`;
+        msgEl.className = 'msg ok';
+        msgEl.textContent = pesan;
+
+        document.getElementById('fileExcel').value = '';
+        const tglLoad = newTx[0].tanggal;
+        document.getElementById('selDate').value = tglLoad;
+        await loadDay(tglLoad);
+        setTimeout(() => { msgEl.textContent = ''; msgEl.className = 'msg'; }, 6000);
       }
     } catch (err) {
-      alert('Error saat memproses Excel: ' + err.message);
-      setStatus('Error import', 'err');
+      alert('Error saat memproses file: ' + err.message);
+      msgEl.className = 'msg err';
+      msgEl.textContent = '❌ Error: ' + err.message;
     }
   };
   reader.readAsArrayBuffer(file);
 });
 
-// === BIAYA IKLAN ===
-async function loadAds(){
+// ============================================================
+// BIAYA IKLAN
+// FIX #8 — upsert tanpa unique constraint menyebabkan insert
+// ganda. Sekarang cek existing dulu lalu update atau insert.
+// ============================================================
+async function loadAds() {
   const {data, error} = await sb.from('biayaharian')
-    .select('*').order('tanggal', {ascending:false}).limit(14);
-  if(error){ return; }
+    .select('*').order('tanggal', {ascending: false}).limit(14);
+  if (error) return;
   const rows = data || [];
-  const tb = document.querySelector('#tblA tbody');
+  const tb   = document.querySelector('#tblA tbody');
   tb.innerHTML = rows.length
-    ? rows.map(r=>`<tr><td>${esc(r.tanggal)}</td><td>${rupiah(r.biaya_iklan)}</td></tr>`).join('')
+    ? rows.map(r => `<tr><td>${esc(r.tanggal)}</td><td>${rupiah(r.biaya_iklan)}</td></tr>`).join('')
     : '<tr><td colspan="2" class="empty">Belum ada data</td></tr>';
 }
 
-document.getElementById('btnSimpanA').addEventListener('click', async ()=>{
-  const tanggal = document.getElementById('a_tgl').value;
-  const biaya_iklan = Number(document.getElementById('a_biaya').value)||0;
-  if(!tanggal){ alert('Tanggal wajib diisi'); return; }
-  const {error} = await sb.from('biayaharian').upsert({tanggal, biaya_iklan, updated_at: new Date().toISOString()});
-  if(error){ alert('Gagal simpan: '+error.message); return; }
-  flashMsg('a_msg', 'Tersimpan.');
+document.getElementById('btnSimpanA').addEventListener('click', async () => {
+  const tanggal    = document.getElementById('a_tgl').value;
+  const biaya_iklan = Number(document.getElementById('a_biaya').value) || 0;
+  if (!tanggal) { alert('Tanggal wajib diisi'); return; }
+
+  // FIX: cek apakah row untuk tanggal ini sudah ada
+  const {data: existing, error: errCheck} = await sb.from('biayaharian')
+    .select('id').eq('tanggal', tanggal).maybeSingle();
+  if (errCheck) { alert('Gagal cek data: ' + errCheck.message); return; }
+
+  let error;
+  if (existing) {
+    ({error} = await sb.from('biayaharian').update({biaya_iklan}).eq('id', existing.id));
+  } else {
+    ({error} = await sb.from('biayaharian').insert({tanggal, biaya_iklan}));
+  }
+  if (error) { alert('Gagal simpan: ' + error.message); return; }
+
+  flashMsg('a_msg', 'Tersimpan ✓', 'ok');
   await loadAds();
-  if(tanggal === document.getElementById('selDate').value) await loadDay(tanggal);
+  if (tanggal === document.getElementById('selDate').value) await loadDay(tanggal);
 });
 
-// === EXPORT CSV ===
-document.getElementById('btnExport').addEventListener('click', async ()=>{
+// ============================================================
+// EXPORT CSV
+// ============================================================
+document.getElementById('btnExport').addEventListener('click', async () => {
   setStatus('Mengambil data untuk export…');
-  const {data, error} = await sb.from('transaksi').select('*').order('tanggal').limit(5000);
-  if(error){ alert('Gagal export: '+error.message); setStatus(''); return; }
+  const {data, error} = await sb.from('transaksi').select('*').order('tanggal').limit(10000);
+  if (error) { alert('Gagal export: ' + error.message); setStatus(''); return; }
   const rows = data || [];
-  const headers = ['Tanggal','No. Pesanan','Produk','Variasi','Ukuran','Qty','Harga Satuan','Total Penjualan','Status','HPP Satuan','Total HPP','Biaya Admin Shopee','Profit Transaksi'];
-  
+  if (!rows.length) { alert('Tidak ada data untuk diekspor.'); setStatus(''); return; }
+
+  const headers = [
+    'Tanggal','No. Pesanan','Produk','Variasi','Ukuran','Qty',
+    'Harga Satuan','Total Penjualan','Status',
+    'HPP Satuan','Total HPP','Biaya Admin Shopee','Profit Transaksi'
+  ];
   const csvRows = [headers.join(';')];
-  
-  rows.forEach(r=>{
-    const total = (r.qty||0)*(r.harga||0);
-    const hppTotal = (r.qty||0)*(r.hpp_satuan||0);
-    const profit = r.status==='Selesai'?(total-hppTotal-(r.biaya_admin||0)):0;
-    
-    const line = [r.tanggal,r.no_pesanan,r.produk,r.variasi,r.ukuran,r.qty,r.harga,total,r.status,r.hpp_satuan,hppTotal,r.biaya_admin,profit]
-      .map(v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`).join(';');
-    csvRows.push(line);
+
+  rows.forEach(r => {
+    const total    = (r.qty || 0) * (r.harga || 0);
+    const hppTotal = (r.qty || 0) * (r.hpp_satuan || 0);
+    const profit   = r.status === 'Selesai' ? (total - hppTotal - (r.biaya_admin || 0)) : 0;
+    csvRows.push([
+      r.tanggal, r.no_pesanan, r.produk, r.variasi, r.ukuran, r.qty,
+      r.harga, total, r.status, r.hpp_satuan, hppTotal, r.biaya_admin, profit
+    ].map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(';'));
   });
-  
-  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'data-penjualan-shopee.csv';
+
+  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], {type: 'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `penjualan-shopee-${todayStr()}.csv`;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
-  setStatus('Export selesai.','ok');
-  setTimeout(()=>setStatus('',''),3000);
+
+  setStatus(`Export selesai (${rows.length} baris) ✓`, 'ok');
+  setTimeout(() => setStatus(''), 3000);
 });
 
-// === GRAFIK TREN PENJUALAN ===
-document.getElementById('btnLoadGrafik').addEventListener('click', loadChartData);
+// ============================================================
+// GRAFIK
+// FIX #9 — auto-load saat tab dibuka tidak memunculkan alert;
+// hanya button yang memberi peringatan jika tanggal kosong.
+// ============================================================
+document.getElementById('btnLoadGrafik').addEventListener('click', () => {
+  const s = document.getElementById('g_start').value;
+  const e = document.getElementById('g_end').value;
+  if (!s || !e) { alert('Pilih rentang tanggal terlebih dahulu'); return; }
+  loadChartData();
+});
 
 async function loadChartData() {
   const start = document.getElementById('g_start').value;
-  const end = document.getElementById('g_end').value;
-  if(!start || !end) {
-    alert('Pilih rentang tanggal terlebih dahulu');
-    return;
-  }
-  
-  setStatus('Memuat data grafik...', 'msg');
-  
+  const end   = document.getElementById('g_end').value;
+  // Jika tanggal belum diisi (misal auto-load sebelum init selesai), diam saja
+  if (!start || !end) return;
+
+  setStatus('Memuat data grafik…');
+
   const {data, error} = await sb.from('transaksi')
     .select('tanggal, qty, harga, status')
-    .gte('tanggal', start)
-    .lte('tanggal', end)
+    .gte('tanggal', start).lte('tanggal', end)
     .order('tanggal', {ascending: true});
-  
-  if(error) {
-    alert('Gagal memuat grafik: ' + error.message);
-    setStatus('', '');
-    return;
-  }
-  
+
+  if (error) { alert('Gagal memuat grafik: ' + error.message); setStatus(''); return; }
+
+  // Buat kerangka tanggal agar hari tanpa transaksi tetap muncul di grafik
   const grouped = {};
-  let currDate = new Date(start);
-  const endDateObj = new Date(end);
-  
-  while(currDate <= endDateObj) {
-    const dStr = localDateStr(currDate);
-    grouped[dStr] = { qty: 0, omset: 0 };
-    currDate.setDate(currDate.getDate() + 1);
+  const curr    = new Date(start + 'T00:00:00');
+  const endObj  = new Date(end   + 'T00:00:00');
+  while (curr <= endObj) {
+    grouped[localDateStr(curr)] = {qty: 0, omset: 0};
+    curr.setDate(curr.getDate() + 1);
   }
 
   (data || []).forEach(r => {
-    const tgl = r.tanggal;
-    if(grouped[tgl]) {
-      grouped[tgl].qty += (r.qty || 1); 
-      if(r.status === 'Selesai') {
-        grouped[tgl].omset += (r.qty || 0) * (r.harga || 0);
-      }
-    }
+    if (!grouped[r.tanggal]) return;
+    grouped[r.tanggal].qty += (r.qty || 1);
+    if (r.status === 'Selesai') grouped[r.tanggal].omset += (r.qty || 0) * (r.harga || 0);
   });
 
-  const labels = Object.keys(grouped);
-  const dataQty = labels.map(l => grouped[l].qty);
-  const dataOmset = labels.map(l => grouped[l].omset);
-
+  const labels   = Object.keys(grouped);
+  const dataQty  = labels.map(l => grouped[l].qty);
+  const dataOmset= labels.map(l => grouped[l].omset);
   renderChart(labels, dataQty, dataOmset);
-  setStatus('', '');
+  setStatus('');
 }
 
 function renderChart(labels, dataQty, dataOmset) {
   const ctx = document.getElementById('orderChart').getContext('2d');
-  
-  if(orderChartInst) {
-      orderChartInst.destroy();
-  }
-  
+  if (orderChartInst) orderChartInst.destroy();
+
   orderChartInst = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: labels,
+      labels,
       datasets: [
         {
           label: 'Produk Terjual (Qty)',
           data: dataQty,
-          borderColor: '#e74c3c',
-          backgroundColor: 'rgba(231, 76, 60, 0.1)',
-          yAxisID: 'y1',
-          tension: 0.3,
-          fill: true
+          borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)',
+          yAxisID: 'y1', tension: 0.3, fill: true, pointRadius: 3
         },
         {
           label: 'Omset Selesai (Rp)',
           data: dataOmset,
-          borderColor: '#1F3864',
-          backgroundColor: 'rgba(31, 56, 100, 0.1)',
-          yAxisID: 'y2',
-          tension: 0.3,
-          fill: true
+          borderColor: '#1F3864', backgroundColor: 'rgba(31,56,100,0.1)',
+          yAxisID: 'y2', tension: 0.3, fill: true, pointRadius: 3
         }
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false
+      responsive: true, maintainAspectRatio: false,
+      interaction: {mode: 'index', intersect: false},
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              if (ctx.dataset.yAxisID === 'y2') {
+                return ctx.dataset.label + ': ' + rupiah(ctx.parsed.y);
+              }
+              return ctx.dataset.label + ': ' + ctx.parsed.y + ' pcs';
+            }
+          }
+        }
       },
       scales: {
-        x: {
-          display: true,
-          title: { display: true, text: 'Tanggal' }
-        },
+        x: {display: true, title: {display: true, text: 'Tanggal'}},
         y1: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: { display: true, text: 'Qty' },
-          beginAtZero: true,
-          ticks: { stepSize: 1 }
+          type: 'linear', display: true, position: 'left',
+          title: {display: true, text: 'Qty'},
+          beginAtZero: true, ticks: {stepSize: 1, precision: 0}
         },
         y2: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: { display: true, text: 'Omset (Rp)' },
-          grid: { drawOnChartArea: false },
-          beginAtZero: true
+          type: 'linear', display: true, position: 'right',
+          title: {display: true, text: 'Omset (Rp)'},
+          grid: {drawOnChartArea: false}, beginAtZero: true,
+          ticks: {callback: v => new Intl.NumberFormat('id-ID', {notation: 'compact'}).format(v)}
         }
       }
     }
   });
 }
 
-// === INIT ===
-async function init(){
-  const tToday = todayStr();
-  document.getElementById('selDate').value = tToday;
-  document.getElementById('a_tgl').value = tToday;
-  
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  const today = todayStr();
+  document.getElementById('selDate').value = today;
+  document.getElementById('a_tgl').value   = today;
+
   const d = new Date();
-  document.getElementById('g_end').value = localDateStr(d);
+  document.getElementById('g_end').value   = localDateStr(d);
   d.setDate(d.getDate() - 14);
   document.getElementById('g_start').value = localDateStr(d);
 
   setStatus('Menghubungkan ke database…');
-  try{
+  try {
     await loadMaster();
-    await loadDay(tToday);
+    await loadDay(today);
     await loadAds();
-    setStatus('Terhubung ke Supabase ✓','ok');
-    setTimeout(()=>setStatus('',''),3000);
-  }catch(e){
-    setStatus('Gagal terhubung: '+e.message,'err');
+    setStatus('Terhubung ke Supabase ✓', 'ok');
+    setTimeout(() => setStatus(''), 3000);
+  } catch (e) {
+    setStatus('Gagal terhubung: ' + e.message, 'err');
   }
 }
 
 init();
 
-// === PWA SETUP ===
+// ============================================================
+// PWA
+// ============================================================
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('[SW] Registered:', reg.scope))
-      .catch(err => console.warn('[SW] Registration failed:', err));
+      .then(r  => console.log('[SW] Registered:', r.scope))
+      .catch(er => console.warn('[SW] Failed:', er));
   });
 }
 
 let deferredPrompt = null;
 const installBanner = document.getElementById('installBanner');
-const btnInstall = document.getElementById('btnInstall');
-const btnDismiss = document.getElementById('btnDismissInstall');
 
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  if (!localStorage.getItem('pwa_dismissed')) {
-    installBanner.style.display = 'flex';
-  }
+  if (!localStorage.getItem('pwa_dismissed')) installBanner.style.display = 'flex';
 });
 
-btnInstall && btnInstall.addEventListener('click', async () => {
+document.getElementById('btnInstall').addEventListener('click', async () => {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
+  const {outcome} = await deferredPrompt.userChoice;
   deferredPrompt = null;
   installBanner.style.display = 'none';
   if (outcome === 'accepted') setStatus('Aplikasi berhasil dipasang ✓', 'ok');
 });
 
-btnDismiss && btnDismiss.addEventListener('click', () => {
+document.getElementById('btnDismissInstall').addEventListener('click', () => {
   installBanner.style.display = 'none';
   localStorage.setItem('pwa_dismissed', '1');
 });
@@ -940,21 +1121,14 @@ window.addEventListener('appinstalled', () => {
   installBanner.style.display = 'none';
   deferredPrompt = null;
   setStatus('Aplikasi sudah terpasang ✓', 'ok');
-  setTimeout(() => setStatus('', ''), 3000);
+  setTimeout(() => setStatus(''), 3000);
 });
 
 const offlineBanner = document.getElementById('offlineBanner');
 function updateOnlineStatus() {
-  if (!navigator.onLine) {
-    offlineBanner.style.display = 'block';
-    document.querySelectorAll('.btn:not(.secondary)').forEach(b => {
-      if (b.id !== 'btnExport') b.dataset.wasDisabled = b.disabled;
-    });
-  } else {
-    offlineBanner.style.display = 'none';
-  }
+  offlineBanner.style.display = navigator.onLine ? 'none' : 'block';
 }
-window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('online',  updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
 </script>
