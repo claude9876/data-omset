@@ -173,9 +173,6 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
         <button class="btn" id="btnSimpanT">Tambah Transaksi</button>
         <span class="msg" id="t_msg"></span>
       </div>
-      <datalist id="dl_produk"></datalist>
-      <datalist id="dl_variasi"></datalist>
-      <datalist id="dl_ukuran"></datalist>
     </div>
 
     <div class="card">
@@ -208,8 +205,8 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
       <h2>Tambah / Perbarui Master HPP</h2>
       <div class="grid">
         <div><label>Nama Produk</label><input id="m_produk" required list="dl_produk"></div>
-        <div><label>Variasi</label><input id="m_variasi"></div>
-        <div><label>Ukuran</label><input id="m_ukuran"></div>
+        <div><label>Variasi</label><input id="m_variasi" list="dl_variasi"></div>
+        <div><label>Ukuran</label><input id="m_ukuran" list="dl_ukuran"></div>
         <div><label>HPP per Unit (Rp)</label><input id="m_hpp" type="number" min="0"></div>
       </div>
       <div class="row-actions">
@@ -266,6 +263,11 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     </div>
   </section>
 
+  <!-- PERBAIKAN: Datalist dipindah keluar dari <section> agar tidak terkena bug saat disembunyikan di versi mobile -->
+  <datalist id="dl_produk"></datalist>
+  <datalist id="dl_variasi"></datalist>
+  <datalist id="dl_ukuran"></datalist>
+
   <div style="text-align:center; margin-top:20px;">
     <span id="statusBar"></span>
   </div>
@@ -280,7 +282,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // === STATE ===
 let masterList = [], masterMap = {};
 let dayRows = [];
-let orderChartInst = null; // Variabel penampung instance grafik
+let orderChartInst = null; 
 
 // === UTILS ===
 function localDateStr(dateObj) {
@@ -353,9 +355,15 @@ async function loadMaster(){
   const dp=document.getElementById('dl_produk'), dv=document.getElementById('dl_variasi'), du=document.getElementById('dl_ukuran');
   const uniq=arr=>[...new Set(arr.filter(Boolean))];
   
-  dp.innerHTML = `<option value="Blouse Polkadot Terbaru"><option value="Kemeja Polkadot">`;
-  dv.innerHTML = uniq(masterList.map(m=>m.variasi)).map(v=>`<option value="${esc(v)}">`).join('');
-  du.innerHTML = uniq(masterList.map(m=>m.ukuran)).map(v=>`<option value="${esc(v)}">`).join('');
+  // PERBAIKAN: Menggabungkan pilihan produk standar dengan produk yang ditarik dari database Master HPP
+  const defaultProduk = ['Blouse Polkadot Terbaru', 'Kemeja Polkadot'];
+  const dbProduk = masterList.map(m => m.produk);
+  const allProduk = uniq([...defaultProduk, ...dbProduk]);
+
+  // Penulisan tag HTML `<option></option>` yang aman agar kompatibel di semua browser HP
+  dp.innerHTML = allProduk.map(v => `<option value="${esc(v)}"></option>`).join('');
+  dv.innerHTML = uniq(masterList.map(m=>m.variasi)).map(v=>`<option value="${esc(v)}"></option>`).join('');
+  du.innerHTML = uniq(masterList.map(m=>m.ukuran)).map(v=>`<option value="${esc(v)}"></option>`).join('');
 }
 
 function renderMasterTable(){
@@ -774,7 +782,6 @@ async function loadChartData() {
     return;
   }
   
-  // Persiapkan objek tanggal dari start sampai end agar tidak ada hari yang bolong
   const grouped = {};
   let currDate = new Date(start);
   const endDateObj = new Date(end);
@@ -785,7 +792,6 @@ async function loadChartData() {
     currDate.setDate(currDate.getDate() + 1);
   }
 
-  // Isi data ke masing-masing tanggal
   (data || []).forEach(r => {
     const tgl = r.tanggal;
     if(grouped[tgl]) {
@@ -807,7 +813,6 @@ async function loadChartData() {
 function renderChart(labels, dataQty, dataOmset) {
   const ctx = document.getElementById('orderChart').getContext('2d');
   
-  // Hapus grafik lama jika sudah ada
   if(orderChartInst) {
       orderChartInst.destroy();
   }
@@ -876,7 +881,6 @@ async function init(){
   document.getElementById('selDate').value = tToday;
   document.getElementById('a_tgl').value = tToday;
   
-  // Setel rentang waktu grafik default (14 hari terakhir)
   const d = new Date();
   document.getElementById('g_end').value = localDateStr(d);
   d.setDate(d.getDate() - 14);
