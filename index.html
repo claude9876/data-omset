@@ -256,7 +256,20 @@ function rupiah(n){
 function esc(s){
   return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
-function keyOf(p,v,u){ return (p||'').trim()+'|'+(v||'').trim()+'|'+(u||'').trim(); }
+// PERBAIKAN 2: keyOf sekarang Case-Insensitive (mengubah semuanya menjadi huruf kecil)
+function keyOf(p,v,u){ 
+  return (p||'').trim().toLowerCase()+'|'+(v||'').trim().toLowerCase()+'|'+(u||'').trim().toLowerCase(); 
+}
+// PERBAIKAN 1: parseMoney dipindah ke UTILS agar bisa dipakai oleh semua proses baca uang
+function parseMoney(val) {
+  if (typeof val === 'number') {
+    if (val < 100000 && !Number.isInteger(val)) return Math.round(val * 1000);
+    if (val < 10000) return val * 1000;
+    return val;
+  }
+  return parseInt(String(val).replace(/[^0-9]/g, '')) || 0;
+}
+
 function setStatus(msg, type=''){
   const el = document.getElementById('statusBar');
   el.textContent = msg; el.className = type;
@@ -501,14 +514,10 @@ document.getElementById('btnUploadExcel').addEventListener('click', () => {
           
           const produk = String(row['Nama Produk'] || '').trim();
           
-          const rawHarga = row['Harga Produk'];
-          const harga = typeof rawHarga === 'number' ? rawHarga : Number(String(rawHarga).replace(/[^0-9.-]+/g, '')) || 0;
-          
-          const rawPenghasilan = row['Total Penghasilan'];
-          const penghasilan = typeof rawPenghasilan === 'number' ? rawPenghasilan : Number(String(rawPenghasilan).replace(/[^0-9.-]+/g, '')) || 0;
-          
-          const rawPengembalian = row['Jumlah Pengembalian Dana ke Pembeli'];
-          const pengembalian = typeof rawPengembalian === 'number' ? rawPengembalian : Number(String(rawPengembalian).replace(/[^0-9.-]+/g, '')) || 0;
+          // PERBAIKAN 1: Menggunakan fungsi parseMoney dari Utils
+          const harga = parseMoney(row['Harga Produk']);
+          const penghasilan = parseMoney(row['Total Penghasilan']);
+          const pengembalian = parseMoney(row['Jumlah Pengembalian Dana ke Pembeli']);
           
           // Otomatis Deteksi Retur
           let status = 'Selesai';
@@ -559,16 +568,7 @@ document.getElementById('btnUploadExcel').addEventListener('click', () => {
           
           const qty = parseInt(row['Jumlah']) || 1;
           
-          // Parse Money helper
-          const parseMoney = (val) => {
-            if (typeof val === 'number') {
-              if (val < 100000 && !Number.isInteger(val)) return Math.round(val * 1000);
-              if (val < 10000) return val * 1000;
-              return val;
-            }
-            return parseInt(String(val).replace(/[^0-9]/g, '')) || 0;
-          };
-          
+          // PERBAIKAN 1: Memakai fungsi parseMoney dari UTILS
           const harga = parseMoney(row['Harga Setelah Diskon']);
           const subtotal = parseMoney(row['Subtotal Pesanan']);
           const totalBayar = parseMoney(row['Total Pembayaran']);
@@ -623,6 +623,9 @@ document.getElementById('btnUploadExcel').addEventListener('click', () => {
 });
 
 // === BIAYA IKLAN ===
+// PENTING UNTUK PERBAIKAN 3:
+// Pastikan tabel `biayaharian` di Supabase, kolom `tanggal` disetel sebagai "Primary Key" 
+// atau memiliki "Unique Constraint" agar fungsi .upsert() tidak membuat baris duplikat.
 async function loadAds(){
   const {data, error} = await sb.from('biayaharian')
     .select('*').order('tanggal', {ascending:false}).limit(14);
@@ -652,16 +655,23 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   if(error){ alert('Gagal export: '+error.message); setStatus(''); return; }
   const rows = data || [];
   const headers = ['Tanggal','No. Pesanan','Produk','Variasi','Ukuran','Qty','Harga Satuan','Total Penjualan','Status','HPP Satuan','Total HPP','Biaya Admin Shopee','Profit Transaksi'];
-  const csvRows = [headers.join(',')];
+  
+  // PERBAIKAN 4: Ganti join koma dengan titik koma agar rapi di Excel format Indonesia
+  const csvRows = [headers.join(';')];
+  
   rows.forEach(r=>{
     const total = (r.qty||0)*(r.harga||0);
     const hppTotal = (r.qty||0)*(r.hpp_satuan||0);
     const profit = r.status==='Selesai'?(total-hppTotal-(r.biaya_admin||0)):0;
+    
+    // Pemisah data (;)
     const line = [r.tanggal,r.no_pesanan,r.produk,r.variasi,r.ukuran,r.qty,r.harga,total,r.status,r.hpp_satuan,hppTotal,r.biaya_admin,profit]
-      .map(v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`).join(',');
+      .map(v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`).join(';');
     csvRows.push(line);
   });
-  const blob = new Blob([csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  
+  // PERBAIKAN 4: Tambahkan BOM \uFEFF agar Excel otomatis deteksi encoding UTF-8 (karakter khusus terbaca normal)
+  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = 'data-penjualan-shopee.csv';
@@ -690,6 +700,7 @@ async function init(){
 init();
 
 // === PWA SETUP ===
+// PERBAIKAN 5: Pastikan file sw.js dan manifest.json ada di folder yang sama di hosting Anda
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
