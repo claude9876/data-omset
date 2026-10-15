@@ -2,12 +2,13 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Input Penjualan Shopee</title>
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1F3864">
+<meta name="color-scheme" content="light dark">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,797 +17,1605 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 
 <style>
+/* =========================================================
+   Desain: "nota" — rekap harian tampil seperti struk kasir,
+   sisanya sengaja tenang: daftar buku kas, satu aksen kunyit.
+   ========================================================= */
 :root{
-  --bg:#f3f4f8; --surface:#ffffff; --surface2:#f8f9fc; --text:#1a1d29; --muted:#6b7280;
-  --border:#e2e5eb; --accent:#1F3864; --accent2:#2e5090; --success:#1e7e34; --success-bg:#e6f4ea;
-  --danger:#c0392b; --danger-bg:#fdecea; --warn-bg:#fff3cd; --warn-text:#8a6d1a;
-  color-scheme: light dark;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --col: 640px;
+  --tabbar-h: 64px;
+
+  --ink:#14202e; --ink-2:#4a596b; --ink-3:#66758a;
+  --bg:#e9edf2; --surface:#ffffff; --surface-2:#f2f5f8; --line:#d9dfe7;
+  --appbar:#1f3864;
+  --btn:#1f3864; --on-btn:#ffffff;
+  --kunyit:#f2b01e; --on-kunyit:#2a1f00;
+  --pos:#0c7447; --pos-bg:#e0f3ea;
+  --neg:#bb3426; --neg-bg:#fbe7e4;
+  --warn:#7d5200; --warn-bg:#fff0c8;
+  --paper:#fffef8; --leader:#b7c0cc;
+  --focus:#2563d6;
+
+  --c-hpp:#355c9a; --c-admin:#9eacbf; --c-iklan:#f2b01e; --c-untung:#0c7447;
+  --chart-a:#1f3864; --chart-b:#0c7447; --chart-c:#d99a0b;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#111318; --surface:#1b1e26; --surface2:#20242e; --text:#e8e9ed; --muted:#9aa0ab;
-    --border:#2b2f3a; --accent:#6f93cc; --accent2:#5779ad; --success:#4caf50; --success-bg:#1c3324;
-    --danger:#ef5350; --danger-bg:#3a2222; --warn-bg:#473c1b; --warn-text:#e0c068;
+    --ink:#e6ecf4; --ink-2:#aab6c6; --ink-3:#8c98aa;
+    --bg:#0d141c; --surface:#151f2a; --surface-2:#1c2835; --line:#283647;
+    --appbar:#162a4d;
+    --btn:#9db8e6; --on-btn:#0d1a2e;
+    --pos:#4cc58a; --pos-bg:#12301f;
+    --neg:#ff8a7a; --neg-bg:#3a1f1c;
+    --warn:#f2c35c; --warn-bg:#3d3112;
+    --paper:#1b2836; --leader:#41526a;
+    --focus:#8fb0e8;
+    --c-hpp:#6f93cc; --c-admin:#5d6d83; --c-untung:#4cc58a;
+    --chart-a:#9db8e6; --chart-b:#4cc58a; --chart-c:#f2b01e;
   }
 }
+
 *{box-sizing:border-box;}
-html{scroll-padding-top:env(safe-area-inset-top,0px);}
+[hidden]{display:none !important;}
+html{-webkit-text-size-adjust:100%;}
 body{
-  margin:0; background:var(--bg); color:var(--text); font-family:Arial,Helvetica,sans-serif;
-  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.4 var(--font); font-variant-numeric:tabular-nums;
+  -webkit-tap-highlight-color:transparent;
 }
-header{
-  background:var(--accent); color:#fff; padding:16px 16px; position:sticky; top:0; z-index:5;
-  padding-top:calc(16px + env(safe-area-inset-top,0px));
-}
-header h1{margin:0; font-size:18px;}
-header p{margin:4px 0 0; font-size:12px; opacity:.85;}
-nav{display:flex; gap:6px; margin-top:12px; overflow-x:auto;}
-nav button{
-  background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:8px;
-  padding:8px 12px; font-size:13px; cursor:pointer; white-space:nowrap;
-}
-nav button.active{background:#fff; color:var(--accent); font-weight:bold;}
-main{max-width:900px; margin:0 auto; padding:14px 14px 40px;}
+body.noscroll{overflow:hidden;}
+button,input,select{font:inherit; color:inherit;}
+button{cursor:pointer;}
+h1,h2,h3,p{margin:0;}
+:focus-visible{outline:3px solid var(--focus); outline-offset:2px; border-radius:6px;}
+.muted{color:var(--ink-3);}
+.pos{color:var(--pos);} .neg{color:var(--neg);}
+
+/* ---------- Appbar ---------- */
+.appbar{background:var(--appbar); color:#fff; padding-top:env(safe-area-inset-top,0px);}
+.appbar-in{max-width:var(--col); margin:0 auto; min-height:54px; padding:6px 8px 6px 16px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.brand{display:flex; align-items:center; gap:10px; min-width:0;}
+.brand svg{width:22px; height:22px; flex:none;}
+.brand h1{font-size:17px; font-weight:650; white-space:nowrap;}
+.appbar-right{display:flex; align-items:center; gap:2px;}
+.conn{display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:rgba(255,255,255,.88);}
+.conn i{width:8px; height:8px; border-radius:50%; background:#9aa7b8; flex:none;}
+.conn.ok i{background:#4cd08c;}
+.conn.err i{background:#ff8a7a;}
+.conn.load i{background:var(--kunyit); animation:pulse 1.1s ease-in-out infinite;}
+@keyframes pulse{50%{opacity:.35;}}
+.spin svg{animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.banner{max-width:var(--col); margin:12px auto 0; padding:10px 14px; border-radius:12px;
+  display:flex; align-items:center; gap:10px; font-size:13.5px;}
+.banner.warn{background:var(--warn-bg); color:var(--warn);}
+.banner.install{background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--kunyit);}
+.banner.install span{flex:1;}
+.banner .btn{min-height:40px; padding:0 14px; font-size:14px;}
+@media (max-width:680px){ .banner{margin-left:16px; margin-right:16px;} }
+
+/* ---------- Layout ---------- */
 .tab{display:none;}
 .tab.active{display:block;}
-.card{
-  background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:14px;
-}
-.card h2{margin:0 0 10px; font-size:15px; color:var(--accent);}
-.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px;}
-label{display:block; font-size:11px; color:var(--muted); margin-bottom:3px;}
-input,select{
-  width:100%; padding:8px; border:1px solid var(--border); border-radius:7px; background:var(--surface2);
-  color:var(--text); font-size:14px;
-}
-input:focus,select:focus{outline:2px solid var(--accent2);}
-.btn{
-  background:var(--accent); color:#fff; border:none; border-radius:7px; padding:9px 16px; font-size:14px;
-  cursor:pointer; font-weight:bold;
-}
-.btn.secondary{background:transparent; color:var(--accent); border:1px solid var(--accent);}
-.btn:disabled{opacity:.5; cursor:not-allowed;}
-.row-actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-.summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px;}
-.stat{background:var(--surface2); border-radius:9px; padding:10px;}
-.stat .lbl{font-size:11px; color:var(--muted);}
-.stat .val{font-size:15px; font-weight:bold; margin-top:2px;}
-.stat.profit .val{color:var(--success);}
-.stat.profit.neg .val{color:var(--danger);}
-.tablewrap{overflow-x:auto; margin-top:10px;}
-table{border-collapse:collapse; width:100%; font-size:12.5px;}
-th,td{padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
-th{color:var(--muted); font-weight:normal; font-size:11px;}
-tr:nth-child(even){background:var(--surface2);}
-tfoot tr td{font-weight:bold; background:var(--surface2); font-size:13px; color:var(--text);}
-.badge{padding:2px 7px; border-radius:20px; font-size:11px;}
-.badge.Selesai{background:var(--success-bg); color:var(--success);}
-.badge.Retur{background:var(--danger-bg); color:var(--danger);}
-.badge.Dibatalkan{background:var(--surface2); color:var(--muted);}
-.warn{color:var(--warn-text); font-size:11px;}
-/* FIX: tap target del lebih besar di mobile */
-.del{background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px;
-     padding:4px 8px; min-width:32px; min-height:32px; line-height:1;}
-.msg{font-size:12px; color:var(--muted);}
-.msg.ok{color:var(--success);}
-.msg.err{color:var(--danger);}
-.empty{color:var(--muted); font-size:13px; padding:10px 0;}
-.loading{color:var(--muted); font-size:13px; padding:10px 0; font-style:italic;}
-#statusBar{font-size:11px; color:var(--muted); margin-top:4px;}
-#statusBar.ok{color:var(--success);}
-#statusBar.err{color:var(--danger);}
-.chart-container{position:relative; height:350px; width:100%; margin-top:20px;}
+.wrap{max-width:var(--col); margin:0 auto;
+  padding:16px 16px calc(160px + env(safe-area-inset-bottom,0px));}
+.pagehead{margin:4px 0 16px;}
+.pagehead h2{font-size:21px; font-weight:700; margin-bottom:4px;}
+.pagehead p{color:var(--ink-2); font-size:14px; max-width:46ch;}
 
-/* ---- DASBOR ---- */
-.dash-section-title{font-size:12px; color:var(--muted); font-weight:bold; text-transform:uppercase;
-  letter-spacing:.05em; margin:14px 0 8px;}
-.dash-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:4px;}
-.dash-stat{background:var(--surface2); border:1px solid var(--border); border-radius:12px;
-  padding:14px 12px; display:flex; flex-direction:column; gap:4px;}
-.dash-stat .ds-icon{font-size:20px; line-height:1;}
-.dash-stat .ds-lbl{font-size:11px; color:var(--muted);}
-.dash-stat .ds-val{font-size:17px; font-weight:bold; color:var(--text); word-break:break-all;}
-.dash-stat.ds-primary{background:var(--accent); border-color:var(--accent);}
-.dash-stat.ds-primary .ds-lbl{color:rgba(255,255,255,.75);}
-.dash-stat.ds-primary .ds-val{color:#fff; font-size:20px;}
-.dash-stat.ds-success .ds-val,.ds-val.ds-success{color:var(--success);}
-.dash-stat.ds-danger  .ds-val,.ds-val.ds-danger {color:var(--danger);}
-.dash-stat.ds-warn    .ds-val,.ds-val.ds-warn   {color:var(--warn-text);}
-.qbtn{background:var(--surface2); color:var(--text); border:1px solid var(--border);
-  border-radius:7px; padding:6px 12px; font-size:12px; cursor:pointer; white-space:nowrap;}
-.qbtn:hover,.qbtn.active{background:var(--accent); color:#fff; border-color:var(--accent);}
-.top-produk-table td:first-child{max-width:140px; overflow:hidden; text-overflow:ellipsis;}
+/* ---------- Day bar ---------- */
+.daybar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top,0px);}
+.daybar-in{max-width:var(--col); margin:0 auto; display:flex; align-items:center; gap:2px; padding:5px 6px;}
+.daypick{position:relative; flex:1; min-width:0; min-height:48px; border-radius:10px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;}
+.daypick:focus-within{outline:3px solid var(--focus); outline-offset:-2px;}
+.daylabel{font-size:16px; font-weight:650;}
+.dayrel{font-size:12.5px; color:var(--ink-3); min-height:1.1em;}
+.daypick input{position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0;}
+.daypick input:focus-visible{outline:none;}
+.chip-today{min-height:36px; margin-left:2px;}
+
+/* ---------- Buttons ---------- */
+.icon-btn{width:44px; height:44px; flex:none; border:0; border-radius:12px; background:transparent;
+  display:inline-grid; place-items:center; color:inherit;}
+.icon-btn svg{width:22px; height:22px;}
+.icon-btn:disabled{opacity:.3; cursor:default;}
+.icon-btn.outlined{border:1px solid var(--line); background:var(--surface); color:var(--ink-2);}
+.btn{min-height:48px; padding:0 20px; border-radius:12px; border:1.5px solid transparent;
+  font-weight:650; font-size:15.5px; display:inline-flex; align-items:center; justify-content:center; gap:8px;}
+.btn svg{width:20px; height:20px;}
+.btn.primary{background:var(--btn); color:var(--on-btn);}
+.btn.secondary{background:transparent; border-color:var(--line); color:var(--ink);}
+.btn.ghost-danger{background:transparent; color:var(--neg); flex:0 0 auto;}
+.btn.danger-solid{background:var(--neg); color:#fff;}
+.btn:disabled{opacity:.55; cursor:not-allowed;}
+.btn.block{width:100%;}
+.linklike{background:none; border:0; padding:0; color:var(--btn); font-weight:650; text-decoration:underline; text-underline-offset:2px;}
+
+/* ---------- Nota (struk) — satu-satunya elemen "berkarakter" ---------- */
+.nota{position:relative; background:var(--paper); border-radius:4px 4px 0 0; padding:16px 18px 14px;
+  margin-bottom:24px; font-family:var(--mono); font-size:13.5px;
+  filter:drop-shadow(0 1px 0 var(--line)) drop-shadow(0 10px 14px rgba(20,32,46,.07));}
+.nota::after{content:""; position:absolute; left:0; right:0; top:calc(100% - 1px); height:9px; background:var(--paper);
+  -webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;
+          mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/18px 100%;}
+.nota-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;
+  padding-bottom:10px; margin-bottom:8px; border-bottom:2px dashed var(--leader);}
+.nota-title{font-weight:700; font-size:14px;}
+.nota-sub{font-size:12px; color:var(--ink-3);}
+.nl{display:flex; align-items:baseline; gap:6px; padding:3px 0;}
+.nl dt{margin:0;}
+.nl dd{margin:0; font-weight:600; white-space:nowrap;}
+.nl .lead{flex:1; min-width:12px; border-bottom:2px dotted var(--leader); transform:translateY(-3px);}
+.nota-total{display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:2px 12px;
+  margin-top:10px; padding-top:12px; border-top:2px dashed var(--leader);}
+.nota-total > span{font-weight:700; font-size:14px;}
+.nota-total strong{font-size:24px; line-height:1.15; font-weight:800; letter-spacing:-.5px; white-space:nowrap;}
+.nota-foot{display:flex; flex-wrap:wrap; gap:2px 16px; margin-top:10px; font-size:12px; color:var(--ink-2);}
+.nota.print{animation:feed .55s steps(14,end) both;}
+@keyframes feed{from{clip-path:inset(0 0 100% 0);} to{clip-path:inset(0 0 -14px 0);}}
+.nota-skel .skel{margin:11px 0;}
+
+/* ---------- Search, chips, menu ---------- */
+.listbar{display:grid; gap:10px; margin-bottom:12px;}
+.searchrow{display:flex; gap:8px; align-items:center;}
+.search{position:relative; flex:1; min-width:0;}
+.search svg{position:absolute; left:12px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--ink-3); pointer-events:none;}
+.search input{width:100%; min-height:44px; padding:0 12px 0 38px; border:1px solid var(--line); border-radius:12px;
+  background:var(--surface); font-size:16px;}
+.chips{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding:2px 1px;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex:none; min-height:38px; padding:0 14px; border-radius:999px; border:1px solid var(--line);
+  background:var(--surface); color:var(--ink-2); font-size:14px; display:inline-flex; align-items:center; gap:7px; white-space:nowrap;}
+.chip b{font-weight:650; color:var(--ink);}
+.chip.active{background:var(--btn); border-color:var(--btn); color:var(--on-btn);}
+.chip.active b{color:inherit;}
+.menu-wrap{position:relative;}
+.menu{position:absolute; right:0; top:calc(100% + 6px); z-index:25; min-width:262px; padding:6px;
+  background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:0 14px 30px rgba(20,32,46,.2);}
+.menu button{display:flex; align-items:center; gap:12px; width:100%; min-height:48px; padding:0 12px;
+  border:0; border-radius:9px; background:transparent; text-align:left; font-size:15px;}
+.menu button svg{width:20px; height:20px; color:var(--ink-2); flex:none;}
+.menu button:active{background:var(--surface-2);}
+@media (hover:hover){ .menu button:hover, .row:hover, .arow:hover{background:var(--surface-2);} }
+
+/* ---------- Ledger (daftar buku kas) ---------- */
+.ledger{background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden;}
+.row{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 14px; width:100%; min-height:64px;
+  padding:12px 14px; border:0; border-bottom:1px solid var(--line); background:transparent; text-align:left; position:relative;}
+.row:last-child{border-bottom:0;}
+.row:active{background:var(--surface-2);}
+.row.s-Retur{box-shadow:inset 4px 0 0 var(--neg);}
+.row.s-Dibatalkan{box-shadow:inset 4px 0 0 var(--ink-3); opacity:.68;}
+.row-main{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.row-title{font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;}
+.row-sub{font-size:13.5px; color:var(--ink-2);}
+.row-meta{display:flex; flex-wrap:wrap; align-items:center; gap:2px 12px; font-size:12.5px; color:var(--ink-3);}
+.row-amt{text-align:right; align-self:center; white-space:nowrap;}
+.row-amt b{display:block; font-size:15px; font-weight:700;}
+.row-amt small{font-size:12px; color:var(--ink-3);}
+.tag{display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:600;}
+.tag.warn{background:var(--warn-bg); color:var(--warn);}
+.tag.Retur{background:var(--neg-bg); color:var(--neg);}
+.tag.Dibatalkan{background:var(--surface-2); color:var(--ink-2);}
+.skelrow{pointer-events:none;}
+.skel{display:block; border-radius:6px; background:linear-gradient(90deg,var(--surface-2),var(--line),var(--surface-2));
+  background-size:220% 100%; animation:shimmer 1.3s linear infinite;}
+@keyframes shimmer{from{background-position:120% 0;} to{background-position:-100% 0;}}
+.empty{padding:30px 22px 26px; text-align:center; color:var(--ink-2);}
+.empty svg{width:34px; height:34px; color:var(--ink-3); margin-bottom:8px;}
+.empty h3{font-size:16.5px; color:var(--ink); margin-bottom:6px;}
+.empty p{font-size:14px; max-width:34ch; margin:0 auto 16px;}
+.empty .btn-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+.empty .btn{min-height:44px; font-size:15px;}
+
+/* ---------- Form ---------- */
+.field{display:flex; flex-direction:column; gap:6px; min-width:0;}
+.field > label, .lbl{font-size:13.5px; font-weight:600; color:var(--ink-2);}
+.field .opt{font-weight:400; color:var(--ink-3);}
+.field input:not([type=hidden]):not([type=checkbox]), .field select{
+  width:100%; min-height:48px; padding:0 12px; border:1.5px solid var(--line); border-radius:12px;
+  background:var(--surface); font-size:16px;}
+.field input[aria-invalid="true"]{border-color:var(--neg);}
+.cols-2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.money{position:relative;}
+.money > span{position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--ink-3); font-weight:600; pointer-events:none;}
+.field .money input{padding-left:40px;}
+.hint{font-size:13px; color:var(--ink-3); min-height:1.3em;}
+.hint.warn{color:var(--warn);}
+.stepper{display:grid; grid-template-columns:44px 1fr 44px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); overflow:hidden;}
+.stepper button{border:0; background:var(--surface-2); font-size:22px; line-height:1; color:var(--ink);}
+.stepper button:active{background:var(--line);}
+.field .stepper input{border:0; border-radius:0; text-align:center; min-height:46px; padding:0; -moz-appearance:textfield;}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+.seg{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:3px; padding:3px;
+  background:var(--surface-2); border:1px solid var(--line); border-radius:13px;}
+.seg button{min-height:42px; border:0; border-radius:10px; background:transparent; font-weight:600; color:var(--ink-2); font-size:14.5px;}
+.seg button[aria-checked="true"]{background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.16);}
+.seg.status button[aria-checked="true"][data-v="Selesai"]{color:var(--pos);}
+.seg.status button[aria-checked="true"][data-v="Retur"]{color:var(--neg);}
+.quick .lbl{display:block; margin-bottom:8px;}
+.chip.pick{max-width:230px; overflow:hidden; text-overflow:ellipsis; display:block; line-height:36px; padding:0 14px;}
+.preview{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:12px; margin:0; background:var(--surface-2); border-radius:12px;}
+.preview div{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.preview dt{font-size:12.5px; color:var(--ink-3); margin:0;}
+.preview dd{margin:0; font-family:var(--mono); font-weight:700; font-size:13.5px; overflow-wrap:anywhere;}
+.dropzone{display:flex; flex-direction:column; align-items:center; gap:8px; padding:26px 16px; text-align:center;
+  border:2px dashed var(--leader); border-radius:14px; background:var(--surface-2); cursor:pointer; position:relative;}
+.dropzone svg{width:30px; height:30px; color:var(--ink-3);}
+.dropzone input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;}
+.dropzone:focus-within{outline:3px solid var(--focus); outline-offset:2px;}
+.dropzone strong{font-size:15.5px;}
+.dropzone .fname{font-size:13.5px; color:var(--ink-2); overflow-wrap:anywhere;}
+.dropzone.has-file{border-style:solid; border-color:var(--btn);}
+.impmsg{font-size:14px; padding:10px 12px; border-radius:10px; background:var(--surface-2); color:var(--ink-2);}
+.impmsg.ok{background:var(--pos-bg); color:var(--pos);}
+.impmsg.err{background:var(--neg-bg); color:var(--neg);}
+
+/* ---------- Sheet, dialog, toast ---------- */
+.scrim{position:fixed; inset:0; z-index:50; background:rgba(8,16,26,.52); opacity:0; transition:opacity .2s;}
+.scrim.open{opacity:1;}
+.scrim.dlg-scrim{z-index:69; opacity:1;}
+.sheet{position:fixed; z-index:51; left:0; right:0; bottom:0; margin:0 auto; width:100%; max-width:560px;
+  max-height:92vh; max-height:92dvh; display:flex; flex-direction:column; background:var(--surface);
+  border-radius:22px 22px 0 0; transform:translateY(100%); transition:transform .26s cubic-bezier(.2,.8,.2,1);}
+.sheet.open{transform:none;}
+.sheet-head{display:flex; align-items:center; justify-content:space-between; padding:12px 8px 4px 20px;}
+.sheet-head h2{font-size:18px; font-weight:700;}
+.sheet-body{overflow-y:auto; overscroll-behavior:contain; padding:10px 20px 18px; display:grid; gap:16px; align-content:start;}
+.sheet-foot{display:flex; gap:10px; padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px)); border-top:1px solid var(--line);}
+.sheet-foot .btn{flex:1;}
+.sheet-foot .btn.ghost-danger{flex:0 0 auto;}
+@media (min-width:720px){
+  .sheet{bottom:auto; top:50%; left:50%; right:auto; margin:0; width:520px; max-height:88vh;
+    border-radius:20px; transform:translate(-50%,-46%); opacity:0; transition:transform .22s, opacity .22s;}
+  .sheet.open{transform:translate(-50%,-50%); opacity:1;}
+}
+.dialog{position:fixed; z-index:70; left:50%; top:50%; transform:translate(-50%,-50%); width:min(350px,calc(100vw - 36px));
+  padding:22px 20px 18px; background:var(--surface); border-radius:18px; box-shadow:0 24px 60px rgba(0,0,0,.35);}
+.dialog h2{font-size:17.5px; margin-bottom:6px;}
+.dialog p{color:var(--ink-2); font-size:14.5px; margin-bottom:18px;}
+.dialog .btn-row{display:flex; gap:10px;}
+.dialog .btn{flex:1; min-height:46px;}
+.toasts{position:fixed; z-index:80; left:0; right:0; top:calc(10px + env(safe-area-inset-top,0px));
+  display:grid; gap:8px; justify-items:center; padding:0 16px; pointer-events:none;}
+.toast{pointer-events:auto; max-width:440px; padding:12px 16px; border-radius:12px; font-size:14.5px; font-weight:550;
+  background:var(--ink); color:var(--surface); box-shadow:0 10px 26px rgba(0,0,0,.28); animation:toastIn .2s ease-out;}
+.toast.err{background:var(--neg); color:#fff;}
+.toast.warn{background:var(--kunyit); color:var(--on-kunyit);}
+.toast.out{opacity:0; transform:translateY(-6px); transition:.2s;}
+@keyframes toastIn{from{opacity:0; transform:translateY(-8px);}}
+
+/* ---------- FAB + tab bar ---------- */
+.fab{position:fixed; z-index:30; width:58px; height:58px; border:0; border-radius:18px; display:grid; place-items:center;
+  right:max(16px, calc((100vw - var(--col)) / 2 + 16px));
+  bottom:calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom,0px));
+  background:var(--kunyit); color:var(--on-kunyit); box-shadow:0 8px 18px rgba(20,32,46,.3);}
+.fab svg{width:28px; height:28px; stroke-width:2.4;}
+.fab:active{transform:scale(.96);}
+.tabbar{position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--surface); border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);}
+.tabbar-in{max-width:var(--col); margin:0 auto; display:grid; grid-template-columns:repeat(4,1fr);}
+.tabbar button{position:relative; min-height:var(--tabbar-h); border:0; background:transparent; color:var(--ink-3);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:12px; font-weight:600;}
+.tabbar button svg{width:24px; height:24px;}
+.tabbar button[aria-current="page"]{color:var(--btn);}
+.tabbar button[aria-current="page"]::before{content:""; position:absolute; top:0; left:24%; right:24%; height:3px;
+  border-radius:0 0 3px 3px; background:var(--kunyit);}
+
+/* ---------- Iklan ---------- */
+.adform{display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; margin-bottom:18px;}
+.adform .btn{grid-column:1 / -1;}
+.sumline{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin:0 2px 10px; font-size:14px; color:var(--ink-2);}
+.sumline b{color:var(--ink); font-family:var(--mono);}
+.arow{display:grid; grid-template-columns:96px 1fr auto; gap:12px; align-items:center; width:100%; min-height:52px;
+  padding:8px 14px; border:0; border-bottom:1px solid var(--line); background:transparent; text-align:left;}
+.arow:last-child{border-bottom:0;}
+.arow:active{background:var(--surface-2);}
+.arow[aria-current="true"]{box-shadow:inset 4px 0 0 var(--kunyit); background:var(--surface-2);}
+.ad-date{font-size:14px; font-weight:600;}
+.ad-bar{height:8px; border-radius:4px; background:var(--surface-2); overflow:hidden;}
+.ad-bar i{display:block; height:100%; background:var(--c-iklan); border-radius:4px;}
+.ad-val{font-family:var(--mono); font-size:13.5px; font-weight:600; text-align:right; white-space:nowrap;}
+.ad-val.muted{font-family:var(--font); font-weight:400;}
+
+/* ---------- Dasbor ---------- */
+.periodbar{display:grid; gap:10px; margin-bottom:16px;}
+.range{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.block{margin-top:26px;}
+.block h3{font-size:16.5px; font-weight:700; margin-bottom:10px;}
+.split{display:flex; gap:2px; height:18px; border-radius:9px; overflow:hidden; background:var(--surface-2);}
+.split span{flex:0 0 var(--w); min-width:3px; background:var(--c);}
+.legend{list-style:none; margin:14px 0 0; padding:0; display:grid; gap:9px;}
+.legend li{display:grid; grid-template-columns:12px minmax(0,1fr) auto auto; gap:10px; align-items:center; font-size:14.5px;}
+.legend i{width:12px; height:12px; border-radius:3px; background:var(--c);}
+.legend .pc{font-weight:700; text-align:right; min-width:46px;}
+.legend .am{font-family:var(--mono); font-size:13px; color:var(--ink-2); text-align:right;}
+.callout{padding:12px 14px; border-radius:12px; font-size:14px; background:var(--warn-bg); color:var(--warn); margin-bottom:16px; line-height:1.45;}
+.callout .linklike{color:inherit;}
+.chartbox{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 12px 10px;}
+.chartbox .seg{margin:0 2px 12px;}
+.chartwrap{position:relative; height:230px;}
+.prod{display:grid; grid-template-columns:30px minmax(0,1fr); gap:6px 8px; padding:12px 14px; border-bottom:1px solid var(--line);}
+.prod:last-child{border-bottom:0;}
+.rank{font-family:var(--mono); font-weight:700; font-size:14px; color:var(--ink-3); padding-top:1px;}
+.prod-name{font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;}
+.prod-bar{height:6px; border-radius:3px; background:var(--surface-2); margin:7px 0 6px; overflow:hidden;}
+.prod-bar i{display:block; height:100%; background:var(--btn); border-radius:3px;}
+.prod-meta{display:flex; flex-wrap:wrap; gap:2px 14px; font-size:13px; color:var(--ink-2);}
+ul.plain{list-style:none; margin:0; padding:0;}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important;}
+}
 </style>
 </head>
 <body>
-<header>
-  <h1>Input Penjualan Shopee</h1>
-  <p>Catat transaksi, HPP, dan biaya iklan secara cepat</p>
-  <nav>
-    <button data-tab="t" class="active">Transaksi</button>
-    <button data-tab="d">Dasbor</button>
-    <button data-tab="m">Master HPP</button>
-    <button data-tab="a">Biaya Iklan</button>
-    <button data-tab="g">Grafik</button>
-  </nav>
+
+<header class="appbar">
+  <div class="appbar-in">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+      <h1>Penjualan Shopee</h1>
+    </div>
+    <div class="appbar-right">
+      <span class="conn load" id="conn" role="status"><i></i><span id="connText">Menghubungkan…</span></span>
+      <button class="icon-btn" id="btnRefresh" type="button" aria-label="Muat ulang data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 11-2.4-5.7"/><path d="M20 4v5h-5"/></svg>
+      </button>
+    </div>
+  </div>
 </header>
-<main>
-  <div id="installBanner" style="display:none; background:var(--accent); color:#fff; padding:10px 14px; border-radius:9px; margin-bottom:14px; align-items:center; gap:10px; flex-wrap:wrap;">
-    <span style="flex:1; font-size:13px;">📲 Pasang aplikasi ini di layar utama agar bisa dipakai offline.</span>
-    <button id="btnInstall" style="background:#fff; color:var(--accent); border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:bold; cursor:pointer;">Pasang</button>
-    <button id="btnDismissInstall" style="background:rgba(255,255,255,.2); color:#fff; border:none; border-radius:6px; padding:7px 10px; font-size:13px; cursor:pointer;">Nanti</button>
-  </div>
-  <div id="offlineBanner" style="display:none; background:var(--warn-bg); color:var(--warn-text); padding:8px 14px; border-radius:9px; margin-bottom:10px; font-size:12.5px;">
-    ⚠️ Tidak ada koneksi internet. Data baru tidak bisa disimpan sampai kembali online.
-  </div>
 
-  <!-- TAB TRANSAKSI -->
-  <section id="tab-t" class="tab active">
-    <div class="card">
-      <h2>Ringkasan Hari Ini</h2>
-      <div class="grid" style="margin-bottom:10px;">
-        <div><label>Tanggal</label><input type="date" id="selDate"></div>
+<div id="offlineBanner" class="banner warn" role="status" hidden>
+  Tidak ada koneksi internet. Data baru tidak bisa disimpan sampai internet kembali.
+</div>
+<div id="installBanner" class="banner install" hidden>
+  <span>Pasang aplikasi ini di layar utama agar lebih cepat dibuka.</span>
+  <button class="btn primary" id="btnInstall" type="button">Pasang</button>
+  <button class="btn secondary" id="btnDismissInstall" type="button">Nanti</button>
+</div>
+
+<main id="main">
+
+  <!-- ===================== TRANSAKSI ===================== -->
+  <section id="tab-t" class="tab active" aria-label="Transaksi">
+    <div class="daybar">
+      <div class="daybar-in">
+        <button class="icon-btn" id="dayPrev" type="button" aria-label="Hari sebelumnya">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <label class="daypick">
+          <span class="daylabel" id="dayLabel">—</span>
+          <span class="dayrel" id="dayRel"></span>
+          <input type="date" id="selDate" aria-label="Pilih tanggal transaksi">
+        </label>
+        <button class="chip chip-today" id="dayToday" type="button" hidden>Hari ini</button>
+        <button class="icon-btn" id="dayNext" type="button" aria-label="Hari berikutnya">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
       </div>
-      <div class="summary" id="summaryBox"></div>
     </div>
 
-    <div class="card">
-      <h2>Import Data (Excel Shopee)</h2>
-      <p style="font-size:12px; margin:0 0 10px; color:var(--muted);">
-        Unggah file <b>"Order"</b> ataupun <b>"Penghasilan"</b>. Sistem akan mendeteksinya otomatis.
-      </p>
-      <div class="grid" style="align-items:end;">
-        <div>
-          <label>Pilih File (.xlsx)</label>
-          <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv">
+    <div class="wrap">
+      <div id="notaDay"></div>
+
+      <div class="listbar">
+        <div class="searchrow">
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+            <input id="txSearch" type="search" placeholder="Cari produk atau no. pesanan" autocomplete="off" aria-label="Cari transaksi">
+          </div>
+          <div class="menu-wrap">
+            <button class="icon-btn outlined" id="btnMore" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Aksi lainnya">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+            </button>
+            <div class="menu" id="moreMenu" role="menu" hidden>
+              <button type="button" role="menuitem" id="btnOpenImport">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5M7.5 9.5L12 5l4.5 4.5"/><path d="M5 19h14"/></svg>
+                Import dari Excel
+              </button>
+              <button type="button" role="menuitem" id="btnRecalcHpp">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 11-2.4-5.7"/><path d="M20 4v5h-5"/></svg>
+                Hitung ulang HPP tanggal ini
+              </button>
+              <button type="button" role="menuitem" id="btnExport">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19h14"/></svg>
+                Unduh CSV semua transaksi
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <button class="btn" id="btnUploadExcel">Proses File Excel</button>
+        <div class="chips" id="txFilters" role="group" aria-label="Filter status">
+          <button class="chip active" type="button" data-f="all" aria-pressed="true">Semua <b>0</b></button>
+          <button class="chip" type="button" data-f="Selesai" aria-pressed="false">Selesai <b>0</b></button>
+          <button class="chip" type="button" data-f="Retur" aria-pressed="false">Retur <b>0</b></button>
+          <button class="chip" type="button" data-f="Dibatalkan" aria-pressed="false">Dibatalkan <b>0</b></button>
         </div>
       </div>
-      <div class="row-actions">
-        <span class="msg" id="excel_msg"></span>
-      </div>
-    </div>
 
-    <div class="card">
-      <h2>Tambah Transaksi Manual</h2>
-      <div class="grid">
-        <div><label>No. Pesanan</label><input id="t_no" placeholder="SP2610..." autocomplete="off"></div>
-        <div><label>Produk</label><input id="t_produk" list="dl_produk" required autocomplete="off"></div>
-        <div><label>Variasi</label><input id="t_variasi" list="dl_variasi" autocomplete="off"></div>
-        <div><label>Ukuran</label><input id="t_ukuran" list="dl_ukuran" autocomplete="off"></div>
-        <div><label>Qty</label><input id="t_qty" type="number" inputmode="numeric" min="1" value="1"></div>
-        <div><label>Harga Satuan Jual (Rp)</label><input id="t_harga" type="number" inputmode="numeric" min="0"></div>
-        <!-- FIX: placeholder diperbarui agar lebih jelas -->
-        <div><label>HPP Satuan (Rp)</label><input id="t_hpp" type="number" inputmode="numeric" min="0" placeholder="Otomatis dari Master"></div>
-        <div><label>Biaya Admin Shopee (Rp)</label><input id="t_admin" type="number" inputmode="numeric" min="0" value="0"></div>
-        <div><label>Status</label>
-          <select id="t_status">
-            <option>Selesai</option><option>Retur</option><option>Dibatalkan</option>
-          </select>
+      <div id="txList" class="ledger" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ===================== DASBOR ===================== -->
+  <section id="tab-d" class="tab" aria-label="Dasbor">
+    <div class="wrap">
+      <div class="periodbar">
+        <div class="chips" id="periodChips" role="group" aria-label="Pilih periode">
+          <button class="chip" type="button" data-p="today" aria-pressed="false">Hari ini</button>
+          <button class="chip" type="button" data-p="7d" aria-pressed="false">7 hari</button>
+          <button class="chip active" type="button" data-p="month" aria-pressed="true">Bulan ini</button>
+          <button class="chip" type="button" data-p="year" aria-pressed="false">Tahun ini</button>
+          <button class="chip" type="button" data-p="all" aria-pressed="false">Semua</button>
+          <button class="chip" type="button" data-p="custom" aria-pressed="false">Atur tanggal</button>
+        </div>
+        <div class="range" id="customRange" hidden>
+          <div class="field"><label for="d_start">Dari tanggal</label><input type="date" id="d_start"></div>
+          <div class="field"><label for="d_end">Sampai tanggal</label><input type="date" id="d_end"></div>
         </div>
       </div>
-      <div class="row-actions">
-        <button class="btn" id="btnSimpanT">Tambah Transaksi</button>
-        <span class="msg" id="t_msg"></span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Transaksi Tanggal Ini</h2>
-      <!-- FIX: Tombol baru untuk menghitung ulang HPP yang kosong -->
-      <div class="row-actions" style="margin-top:0; margin-bottom:8px;">
-        <button class="btn secondary" id="btnRecalcHpp">🔄 Hitung Ulang HPP</button>
-        <span class="msg" id="recalc_msg"></span>
-      </div>
-      <div class="tablewrap">
-        <table id="tblT">
-          <thead>
-            <tr>
-              <th>No. Pesanan</th><th>Produk</th><th>Var/Ukuran</th><th>Qty</th><th>Total Jual</th>
-              <th>HPP Total</th><th>Admin</th><th>Status</th><th>Profit</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colspan="10" class="loading">Memuat data…</td></tr>
-          </tbody>
-          <tfoot></tfoot>
-        </table>
-      </div>
-      <div class="row-actions">
-        <button class="btn secondary" id="btnExport">Unduh CSV Semua Transaksi</button>
-      </div>
+      <div id="dashBody"></div>
     </div>
   </section>
 
-  <!-- TAB DASBOR -->
-  <section id="tab-d" class="tab">
-    <div class="card">
-      <h2>Dasbor Performa</h2>
-      <div class="grid" style="margin-bottom:10px;">
-        <div><label>Dari Tanggal</label><input type="date" id="d_start"></div>
-        <div><label>Sampai Tanggal</label><input type="date" id="d_end"></div>
+  <!-- ===================== MASTER HPP ===================== -->
+  <section id="tab-m" class="tab" aria-label="Master HPP">
+    <div class="wrap">
+      <div class="pagehead">
+        <h2>Master HPP</h2>
+        <p>Harga pokok per produk. Terisi otomatis saat Anda mencatat transaksi.</p>
       </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-        <button class="qbtn" id="d_today">Hari Ini</button>
-        <button class="qbtn" id="d_7days">7 Hari</button>
-        <button class="qbtn" id="d_month">Bulan Ini</button>
-        <button class="qbtn" id="d_year">Tahun Ini</button>
-        <button class="qbtn" id="d_all">Semua Data</button>
+      <div class="listbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <input id="mSearch" type="search" placeholder="Cari produk" autocomplete="off" aria-label="Cari produk di Master HPP">
+        </div>
       </div>
-      <button class="btn" id="btnLoadDashboard">Tampilkan</button>
-      <span class="msg" id="d_msg" style="margin-left:8px;"></span>
-    </div>
-
-    <div id="dashboardStats">
-      <div class="loading" style="padding:20px 0; text-align:center;">Pilih rentang tanggal lalu klik Tampilkan.</div>
+      <div id="mList" class="ledger"></div>
     </div>
   </section>
 
-  <!-- TAB MASTER HPP -->
-  <section id="tab-m" class="tab">
-    <div class="card">
-      <h2>Tambah / Perbarui Master HPP</h2>
-      <div class="grid">
-        <div><label>Nama Produk</label><input id="m_produk" required list="dl_produk" autocomplete="off"></div>
-        <div><label>Variasi</label><input id="m_variasi" list="dl_variasi" autocomplete="off"></div>
-        <div><label>Ukuran</label><input id="m_ukuran" list="dl_ukuran" autocomplete="off"></div>
-        <div><label>HPP per Unit (Rp)</label><input id="m_hpp" type="number" inputmode="numeric" min="0"></div>
+  <!-- ===================== BIAYA IKLAN ===================== -->
+  <section id="tab-a" class="tab" aria-label="Biaya iklan">
+    <div class="wrap">
+      <div class="pagehead">
+        <h2>Biaya iklan</h2>
+        <p>Catat pengeluaran Shopee Ads per hari. Angkanya mengurangi untung bersih.</p>
       </div>
-      <div class="row-actions">
-        <button class="btn" id="btnSimpanM">Simpan HPP</button>
-        <span class="msg" id="m_msg"></span>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Daftar Master HPP</h2>
-      <div class="tablewrap">
-        <table id="tblM"><thead><tr>
-          <th>Produk</th><th>Variasi</th><th>Ukuran</th><th>HPP/Unit</th><th></th>
-        </tr></thead><tbody><tr><td colspan="5" class="loading">Memuat data…</td></tr></tbody></table>
-      </div>
+      <form class="adform" id="adForm" autocomplete="off">
+        <div class="field"><label for="a_tgl">Tanggal</label><input id="a_tgl" type="date" required></div>
+        <div class="field"><label for="a_biaya">Biaya iklan</label>
+          <div class="money"><span>Rp</span><input id="a_biaya" data-money inputmode="numeric" placeholder="0"></div></div>
+        <button class="btn primary" id="btnSimpanA" type="submit">Simpan</button>
+      </form>
+      <div id="adSummary"></div>
+      <div id="adList" class="ledger"></div>
     </div>
   </section>
-
-  <!-- TAB BIAYA IKLAN -->
-  <section id="tab-a" class="tab">
-    <div class="card">
-      <h2>Biaya Iklan Shopee Ads Harian</h2>
-      <div class="grid">
-        <div><label>Tanggal</label><input id="a_tgl" type="date" required></div>
-        <div><label>Biaya Iklan (Rp)</label><input id="a_biaya" type="number" inputmode="numeric" min="0"></div>
-      </div>
-      <div class="row-actions">
-        <button class="btn" id="btnSimpanA">Simpan</button>
-        <span class="msg" id="a_msg"></span>
-      </div>
-    </div>
-    <div class="card">
-      <h2>14 Hari Terakhir</h2>
-      <div class="tablewrap">
-        <table id="tblA"><thead><tr><th>Tanggal</th><th>Biaya Iklan</th></tr></thead><tbody></tbody></table>
-      </div>
-    </div>
-  </section>
-
-  <!-- TAB GRAFIK -->
-  <section id="tab-g" class="tab">
-    <div class="card">
-      <h2>Grafik Tren Penjualan</h2>
-      <p style="font-size:12px; color:var(--muted); margin-top:0;">Pilih rentang waktu untuk melihat grafik produk terjual dan omset harian.</p>
-      <div class="grid">
-        <div><label>Dari Tanggal</label><input type="date" id="g_start"></div>
-        <div><label>Sampai Tanggal</label><input type="date" id="g_end"></div>
-      </div>
-      <div class="row-actions">
-        <button class="btn" id="btnLoadGrafik">Tampilkan Grafik</button>
-      </div>
-      <div class="chart-container">
-        <canvas id="orderChart"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- Datalist di luar section agar konsisten di semua browser HP -->
-  <datalist id="dl_produk"></datalist>
-  <datalist id="dl_variasi"></datalist>
-  <datalist id="dl_ukuran"></datalist>
-
-  <div style="text-align:center; margin-top:20px;">
-    <span id="statusBar"></span>
-  </div>
 </main>
+
+<button class="fab" id="fab" type="button" aria-label="Catat transaksi">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<nav class="tabbar" aria-label="Menu utama">
+  <div class="tabbar-in">
+    <button type="button" data-tab="t" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+      Transaksi
+    </button>
+    <button type="button" data-tab="d">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 20v-7M12 20V6M17 20v-10"/></svg>
+      Dasbor
+    </button>
+    <button type="button" data-tab="m">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5V4.5h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.3"/></svg>
+      Master HPP
+    </button>
+    <button type="button" data-tab="a">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h3l8 4V6L7 10z"/><path d="M18.5 9.5a3.5 3.5 0 010 5"/></svg>
+      Iklan
+    </button>
+  </div>
+</nav>
+
+<!-- ===================== LEMBAR: TRANSAKSI ===================== -->
+<div class="scrim" id="scrim" hidden></div>
+
+<form class="sheet" id="sheetTx" role="dialog" aria-modal="true" aria-labelledby="sheetTxTitle" autocomplete="off" novalidate hidden>
+  <div class="sheet-head">
+    <h2 id="sheetTxTitle">Catat transaksi</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Tutup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="quick" id="t_quickWrap" hidden>
+      <span class="lbl">Pilih cepat dari Master HPP</span>
+      <div class="chips" id="t_quick"></div>
+    </div>
+
+    <div class="field">
+      <label for="t_produk">Produk</label>
+      <input id="t_produk" list="dl_produk" placeholder="Nama produk" data-autofocus>
+    </div>
+    <div class="cols-2">
+      <div class="field"><label for="t_variasi">Variasi</label><input id="t_variasi" list="dl_variasi" placeholder="Warna, motif"></div>
+      <div class="field"><label for="t_ukuran">Ukuran</label><input id="t_ukuran" list="dl_ukuran" placeholder="S, M, XL"></div>
+    </div>
+    <div class="cols-2">
+      <div class="field">
+        <label for="t_qty">Jumlah</label>
+        <div class="stepper">
+          <button type="button" id="t_qtyMinus" aria-label="Kurangi jumlah">−</button>
+          <input id="t_qty" type="number" inputmode="numeric" min="1" value="1">
+          <button type="button" id="t_qtyPlus" aria-label="Tambah jumlah">+</button>
+        </div>
+      </div>
+      <div class="field"><label for="t_harga">Harga jual satuan</label>
+        <div class="money"><span>Rp</span><input id="t_harga" data-money inputmode="numeric" placeholder="0"></div></div>
+    </div>
+    <div class="cols-2">
+      <div class="field"><label for="t_hpp">HPP satuan</label>
+        <div class="money"><span>Rp</span><input id="t_hpp" data-money inputmode="numeric" placeholder="Otomatis"></div></div>
+      <div class="field"><label for="t_admin">Biaya admin Shopee</label>
+        <div class="money"><span>Rp</span><input id="t_admin" data-money inputmode="numeric" placeholder="0" value="0"></div></div>
+    </div>
+    <div class="hint" id="t_hint" style="margin-top:-8px"></div>
+
+    <div class="field">
+      <span class="lbl" id="t_statusLbl">Status pesanan</span>
+      <div class="seg status" id="t_statusSeg" role="radiogroup" aria-labelledby="t_statusLbl">
+        <button type="button" role="radio" data-v="Selesai" aria-checked="true">Selesai</button>
+        <button type="button" role="radio" data-v="Retur" aria-checked="false">Retur</button>
+        <button type="button" role="radio" data-v="Dibatalkan" aria-checked="false">Dibatalkan</button>
+      </div>
+      <input type="hidden" id="t_status" value="Selesai">
+    </div>
+
+    <div class="cols-2">
+      <div class="field"><label for="t_tanggal">Tanggal</label><input id="t_tanggal" type="date"></div>
+      <div class="field"><label for="t_no">No. pesanan <span class="opt">(opsional)</span></label><input id="t_no" placeholder="SP2610…"></div>
+    </div>
+
+    <dl class="preview" id="t_preview" aria-live="polite">
+      <div><dt>Penjualan</dt><dd id="pv_total">Rp 0</dd></div>
+      <div><dt>Total HPP</dt><dd id="pv_hpp">Rp 0</dd></div>
+      <div><dt>Untung</dt><dd id="pv_profit">Rp 0</dd></div>
+    </dl>
+  </div>
+  <div class="sheet-foot">
+    <button type="button" class="btn ghost-danger" id="btnTxDelete" hidden>Hapus</button>
+    <button type="button" class="btn secondary" id="btnTxSaveMore">Simpan &amp; tambah</button>
+    <button type="submit" class="btn primary" id="btnTxSave">Simpan</button>
+  </div>
+</form>
+
+<!-- ===================== LEMBAR: MASTER HPP ===================== -->
+<form class="sheet" id="sheetM" role="dialog" aria-modal="true" aria-labelledby="sheetMTitle" autocomplete="off" novalidate hidden>
+  <div class="sheet-head">
+    <h2 id="sheetMTitle">Tambah HPP</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Tutup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="field"><label for="m_produk">Nama produk</label><input id="m_produk" list="dl_produk" placeholder="Nama produk" data-autofocus></div>
+    <div class="cols-2">
+      <div class="field"><label for="m_variasi">Variasi</label><input id="m_variasi" list="dl_variasi" placeholder="Boleh kosong"></div>
+      <div class="field"><label for="m_ukuran">Ukuran</label><input id="m_ukuran" list="dl_ukuran" placeholder="Boleh kosong"></div>
+    </div>
+    <div class="field"><label for="m_hpp">HPP per unit</label>
+      <div class="money"><span>Rp</span><input id="m_hpp" data-money inputmode="numeric" placeholder="0"></div></div>
+    <p class="hint" style="margin-top:-6px">Berlaku untuk transaksi baru. Transaksi yang sudah tercatat tidak berubah.</p>
+  </div>
+  <div class="sheet-foot">
+    <button type="button" class="btn ghost-danger" id="btnMDelete" hidden>Hapus</button>
+    <button type="submit" class="btn primary" id="btnMSave">Simpan HPP</button>
+  </div>
+</form>
+
+<!-- ===================== LEMBAR: IMPORT ===================== -->
+<div class="sheet" id="sheetImp" role="dialog" aria-modal="true" aria-labelledby="sheetImpTitle" hidden>
+  <div class="sheet-head">
+    <h2 id="sheetImpTitle">Import dari Excel</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Tutup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <p style="color:var(--ink-2); font-size:14.5px;">Pilih file <b>Order</b> atau <b>Penghasilan</b> dari Shopee. Jenis file dikenali otomatis, dan pesanan yang sudah pernah diimport dilewati.</p>
+    <label class="dropzone" id="dropzone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5M7.5 9.5L12 5l4.5 4.5"/><path d="M5 19h14"/></svg>
+      <strong>Pilih file Excel</strong>
+      <span class="fname" id="fileName">.xlsx, .xls, atau .csv</span>
+      <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv">
+    </label>
+    <div class="impmsg" id="excel_msg" role="status" hidden></div>
+  </div>
+  <div class="sheet-foot">
+    <button type="button" class="btn primary" id="btnUploadExcel" disabled>Proses file</button>
+  </div>
+</div>
+
+<!-- ===================== DIALOG KONFIRMASI ===================== -->
+<div class="scrim dlg-scrim" id="dlgScrim" hidden></div>
+<div class="dialog" id="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgMsg" hidden>
+  <h2 id="dlgTitle"></h2>
+  <p id="dlgMsg"></p>
+  <div class="btn-row">
+    <button type="button" class="btn secondary" id="dlgCancel">Batal</button>
+    <button type="button" class="btn primary" id="dlgOk">Ya</button>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<datalist id="dl_produk"></datalist>
+<datalist id="dl_variasi"></datalist>
+<datalist id="dl_ukuran"></datalist>
 
 <script>
 // ============================================================
-// SUPABASE CONFIG — JANGAN DIUBAH
+// SUPABASE CONFIG
+// Tabel yang dipakai halaman ini:
+//   transaksi   (PK: id uuid)
+//   masterhpp   (PK: id uuid, UNIQUE: produk+variasi+ukuran)
+//   biayaharian (PK: tanggal  <-- TIDAK ada kolom id)
 // ============================================================
 const SUPABASE_URL = 'https://filmzkgeoqriaonftsmm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_jIPOL2AGoX5DTAHKz4BATA_chT8PFZg';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = (typeof supabase !== 'undefined')
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      // Aplikasi ini tanpa login, jadi sesi auth tidak perlu disimpan di browser
+      auth: {persistSession: false, autoRefreshToken: false, detectSessionInUrl: false}
+    })
+  : null;
+
+// Supabase membatasi hasil query maksimal 1000 baris per request,
+// jadi semua pengambilan data dilakukan per halaman (pagination).
+const PAGE_SIZE    = 1000;
+const INSERT_CHUNK = 500;   // baris per sekali insert
+const IN_CHUNK     = 100;   // jumlah nilai per filter .in()
 
 // ============================================================
 // STATE
 // ============================================================
 let masterList = [], masterMap = {};
-let dayRows = [];
-let orderChartInst = null;
+let dayRows = [], dayReq = 0;
+let txFilter = 'all', txQuery = '', masterQuery = '';
+let txEditingId = null, masterEditingId = null;
+let adsMap = {};
+let currentTab = 't';
+let notaPrinted = false;
+let chartInst = null;
+const dash = {preset: 'month', dirty: true, mode: 'omset', series: null, req: 0};
 
 // ============================================================
 // UTILS
 // ============================================================
+const $ = id => document.getElementById(id);
+const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const sum = (arr, fn) => arr.reduce((s, x) => s + fn(x), 0);
+
 function localDateStr(d) {
-  return d.getFullYear() + '-' +
-    String(d.getMonth() + 1).padStart(2, '0') + '-' +
-    String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function todayStr() { return localDateStr(new Date()); }
+function parseLocal(s) { return new Date(s + 'T00:00:00'); }
+function addDays(s, n) { const d = parseLocal(s); d.setDate(d.getDate() + n); return localDateStr(d); }
+function diffDays(a, b) { return Math.round((parseLocal(b) - parseLocal(a)) / 86400000); }
+function fmtDay(s) { return parseLocal(s).toLocaleDateString('id-ID', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'}); }
+function fmtDayShort(s) { return parseLocal(s).toLocaleDateString('id-ID', {weekday: 'short', day: 'numeric', month: 'short'}); }
+function fmtRange(a, b) {
+  if (a === b) return fmtDay(a);
+  const da = parseLocal(a), db = parseLocal(b);
+  const sameYear = da.getFullYear() === db.getFullYear();
+  const f1 = da.toLocaleDateString('id-ID', sameYear ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'});
+  const f2 = db.toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+  return f1 + ' – ' + f2;
+}
+function relDay(s) {
+  const t = todayStr();
+  if (s === t) return 'Hari ini';
+  if (s === addDays(t, -1)) return 'Kemarin';
+  return '';
+}
 
 function rupiah(n) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency', currency: 'IDR', minimumFractionDigits: 0
-  }).format(n || 0);
+  return new Intl.NumberFormat('id-ID', {style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0})
+    .format(Math.round(n || 0));
 }
+function costStr(n) { return n > 0 ? '−' + rupiah(n) : rupiah(0); }
+function pct(x) { return (Math.round(x * 10) / 10).toFixed(1).replace('.', ','); }
+function compact(v) { return new Intl.NumberFormat('id-ID', {notation: 'compact'}).format(v); }
 
 function esc(s) {
-  return (s == null ? '' : String(s))
-    .replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c =>
+    ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 }
-
 function keyOf(p, v, u) {
-  return (p||'').trim().toLowerCase() + '|' +
-         (v||'').trim().toLowerCase() + '|' +
-         (u||'').trim().toLowerCase();
+  return (p || '').trim().toLowerCase() + '|' + (v || '').trim().toLowerCase() + '|' + (u || '').trim().toLowerCase();
 }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-// ============================================================
-// FIX #1 — parseMoney
-// Bug lama: `if (val < 10000) return val * 1000` menyebabkan
-// harga produk di bawah Rp 10.000 jadi ×1000 (misal Rp 5.000
-// menjadi Rp 5.000.000). Baris itu sudah dihapus.
-// ============================================================
+// ---- input uang: tampil "15.000", dibaca sebagai angka ----
+function fmtDigits(s) {
+  const d = String(s).replace(/[^0-9]/g, '');
+  return d ? Number(d).toLocaleString('id-ID') : '';
+}
+function numOf(id) { return Number(String($(id).value).replace(/[^0-9]/g, '')) || 0; }
+function setMoney(id, n) { $(id).value = (n === null || n === undefined || n === '') ? '' : Number(n).toLocaleString('id-ID'); }
+document.addEventListener('input', e => {
+  if (e.target.matches && e.target.matches('[data-money]')) e.target.value = fmtDigits(e.target.value);
+});
+
+// ---- parsing file Excel Shopee ----
 function parseMoney(val) {
   if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') {
-    // Edge case: nilai desimal kecil dari Excel (misal 15.5 = Rp 15.500)
     if (!Number.isInteger(val) && val < 100000) return Math.round(val * 1000);
     return Math.round(val);
   }
-  // String — hapus semua non-digit (handles "Rp 15.000", "15,000", dll.)
   return parseInt(String(val).replace(/[^0-9]/g, '')) || 0;
 }
-
-// ============================================================
-// FIX #2 — parseExcelDate
-// Fungsi baru untuk menangani tanggal dari Excel yang bisa berupa:
-// - JS Date object (ketika XLSX.read pakai cellDates: true)
-// - Angka serial Excel (misal 45306)
-// - String "2024-01-15 10:30:00" atau "15/01/2024"
-// ============================================================
 function parseExcelDate(val) {
   if (!val) return todayStr();
-  // JS Date object — dari XLSX.read({cellDates:true})
-  if (val instanceof Date) {
-    return isNaN(val.getTime()) ? todayStr() : localDateStr(val);
-  }
-  // Angka serial Excel → Unix timestamp
+  if (val instanceof Date) return isNaN(val.getTime()) ? todayStr() : localDateStr(val);
   if (typeof val === 'number') {
     const d = new Date((val - 25569) * 86400000);
     return isNaN(d.getTime()) ? todayStr() : localDateStr(d);
   }
   const str = String(val).trim();
-  // Format YYYY-MM-DD (sudah benar)
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
-  // Format DD/MM/YYYY atau D/M/YYYY
   const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
-  // Fallback: ambil bagian pertama sebelum spasi
+  if (m) return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
   return str.split(/[\sT]/)[0] || todayStr();
 }
 
-function setStatus(msg, type = '') {
-  const el = document.getElementById('statusBar');
-  el.textContent = msg; el.className = type;
-}
+// ---- ikon kecil untuk template ----
+const ICON = {
+  receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5V4.5h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.3"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg>'
+};
 
-function flashMsg(id, msg, cls = '', ms = 2500) {
-  const el = document.getElementById(id);
-  if (!el) return;
+// ============================================================
+// UMPAN BALIK: toast, status koneksi, dialog konfirmasi
+// ============================================================
+function toast(msg, {kind = '', ms = 3400} = {}) {
+  const wrap = $('toasts');
+  while (wrap.children.length >= 3) wrap.firstChild.remove();
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
   el.textContent = msg;
-  el.className = 'msg' + (cls ? ' ' + cls : '');
-  setTimeout(() => { el.textContent = ''; el.className = 'msg'; }, ms);
+  el.addEventListener('click', () => el.remove());
+  wrap.appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, ms);
 }
 
-// Cari HPP dari master: coba exact match dulu, fallback ke nama produk saja
+function setConn(state, text) {
+  $('conn').className = 'conn ' + state;
+  $('connText').textContent = text;
+}
+
+function friendlyError(e) {
+  let msg = (e && e.message) ? e.message : String(e);
+  if (!sb) return 'Aplikasi belum selesai dimuat. Periksa internet, lalu muat ulang halaman.';
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+    return 'Tidak bisa terhubung ke server. Periksa internet Anda, lalu coba lagi.';
+  }
+  return msg;
+}
+function fail(e) {
+  console.error(e);
+  const msg = friendlyError(e);
+  if (/terhubung ke server/.test(msg)) setConn('err', 'Tidak terhubung');
+  toast(msg, {kind: 'err', ms: 6000});
+}
+
+let dlgResolve = null, dlgLast = null;
+function askConfirm({title, message = '', ok = 'Ya', cancel = 'Batal', danger = false}) {
+  return new Promise(resolve => {
+    dlgLast = document.activeElement;
+    $('dlgTitle').textContent = title;
+    $('dlgMsg').textContent = message;
+    $('dlgOk').textContent = ok;
+    $('dlgOk').className = 'btn ' + (danger ? 'danger-solid' : 'primary');
+    $('dlgCancel').textContent = cancel;
+    $('dlgScrim').hidden = false;
+    $('dlg').hidden = false;
+    dlgResolve = resolve;
+    (danger ? $('dlgCancel') : $('dlgOk')).focus();
+  });
+}
+function closeDlg(value) {
+  $('dlg').hidden = true;
+  $('dlgScrim').hidden = true;
+  const r = dlgResolve; dlgResolve = null;
+  if (dlgLast && dlgLast.focus) dlgLast.focus();
+  if (r) r(value);
+}
+$('dlgOk').addEventListener('click', () => closeDlg(true));
+$('dlgCancel').addEventListener('click', () => closeDlg(false));
+$('dlgScrim').addEventListener('click', () => closeDlg(false));
+
+// ---- lembar geser (bottom sheet) ----
+let openSheetEl = null, sheetLastFocus = null;
+function openSheet(id) {
+  const el = $(id);
+  if (openSheetEl && openSheetEl !== el) { openSheetEl.classList.remove('open'); openSheetEl.hidden = true; }
+  sheetLastFocus = document.activeElement;
+  toggleMenu(false);
+  $('scrim').hidden = false;
+  el.hidden = false;
+  document.body.classList.add('noscroll');
+  openSheetEl = el;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    $('scrim').classList.add('open');
+    el.classList.add('open');
+  }));
+  const f = el.querySelector('[data-autofocus]');
+  if (f) setTimeout(() => f.focus({preventScroll: true}), 150);
+}
+function closeSheet() {
+  const el = openSheetEl;
+  if (!el) return;
+  el.classList.remove('open');
+  $('scrim').classList.remove('open');
+  openSheetEl = null;
+  document.body.classList.remove('noscroll');
+  setTimeout(() => {
+    if (openSheetEl !== el) el.hidden = true;
+    if (!openSheetEl) $('scrim').hidden = true;
+  }, 270);
+  if (sheetLastFocus && sheetLastFocus.focus) sheetLastFocus.focus({preventScroll: true});
+}
+qsa('[data-close]').forEach(b => b.addEventListener('click', closeSheet));
+// Form sedang diisi: ketukan di luar lembar tidak menutupnya (cegah data hilang tak sengaja)
+$('scrim').addEventListener('click', () => { if (openSheetEl && openSheetEl.id === 'sheetImp') closeSheet(); });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!$('dlg').hidden) { closeDlg(false); return; }
+    if (!$('moreMenu').hidden) { toggleMenu(false); $('btnMore').focus(); return; }
+    if (openSheetEl) closeSheet();
+    return;
+  }
+  if (e.key === 'Tab') {
+    const box = !$('dlg').hidden ? $('dlg') : openSheetEl;
+    if (!box) return;
+    const f = qsa('button, input:not([type=hidden]), select, summary, [tabindex]:not([tabindex="-1"])', box)
+      .filter(x => !x.disabled && !x.hidden && x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
+
+// ---- menu aksi ----
+function toggleMenu(show) {
+  $('moreMenu').hidden = !show;
+  $('btnMore').setAttribute('aria-expanded', show ? 'true' : 'false');
+}
+$('btnMore').addEventListener('click', e => { e.stopPropagation(); toggleMenu($('moreMenu').hidden); });
+document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) toggleMenu(false); });
+
+// ============================================================
+// SUPABASE HELPERS
+// ============================================================
+
+// Lempar error jika respons Supabase gagal, kembalikan data jika sukses
+function must(res, ctx) {
+  if (res.error) {
+    const err = new Error((ctx ? ctx + ': ' : '') + (res.error.message || 'terjadi kesalahan'));
+    err.code = res.error.code;
+    throw err;
+  }
+  return res.data;
+}
+
+// Ambil SEMUA baris (melewati batas 1000 baris per request).
+// buildQuery harus mengembalikan query BARU setiap dipanggil dan
+// memakai .order() agar urutan antar halaman konsisten.
+async function fetchAll(buildQuery, ctx) {
+  const all = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const res  = await buildQuery().range(from, from + PAGE_SIZE - 1);
+    const rows = must(res, ctx) || [];
+    all.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return all;
+}
+
+function chunk(arr, n) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
+function normTx(r) {
+  return {
+    ...r,
+    qty:         Number(r.qty) || 0,
+    harga:       Number(r.harga) || 0,
+    hpp_satuan:  Number(r.hpp_satuan) || 0,
+    biaya_admin: Number(r.biaya_admin) || 0
+  };
+}
+
+// Kelompokkan baris per No. Pesanan lalu bagi jadi batch, agar satu pesanan
+// tidak terpecah di dua batch (aman kalau import terhenti di tengah).
+function batchByOrder(rows, size) {
+  const groups = new Map();
+  rows.forEach(r => {
+    const k = r.no_pesanan;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  });
+  const batches = [];
+  let cur = [];
+  groups.forEach(g => {
+    if (cur.length && cur.length + g.length > size) { batches.push(cur); cur = []; }
+    cur.push(...g);
+  });
+  if (cur.length) batches.push(cur);
+  return batches;
+}
+
+// Cari No. Pesanan yang sudah ada di database (semua tanggal)
+async function findExistingOrderNos(nos) {
+  const found = new Set();
+  for (const part of chunk(nos, IN_CHUNK)) {
+    const rows = await fetchAll(
+      () => sb.from('transaksi').select('no_pesanan').in('no_pesanan', part).order('id'),
+      'Cek duplikat'
+    );
+    rows.forEach(r => found.add(String(r.no_pesanan)));
+  }
+  return found;
+}
+
+// Cari HPP dari master: exact match dulu, fallback ke nama produk saja
 function findHpp(produk, variasi = '', ukuran = '') {
   const exact = masterMap[keyOf(produk, variasi, ukuran)];
-  if (exact) return exact.hpp || 0;
+  if (exact) return Number(exact.hpp) || 0;
   const m = masterList.find(x =>
-    String(x.produk || '').trim().toLowerCase() === String(produk || '').trim().toLowerCase()
-  );
-  return m ? (m.hpp || 0) : 0;
+    String(x.produk || '').trim().toLowerCase() === String(produk || '').trim().toLowerCase());
+  return m ? (Number(m.hpp) || 0) : 0;
 }
 
-// ============================================================
-// NAV
-// ============================================================
-document.querySelectorAll('nav button').forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    document.getElementById('tab-' + b.dataset.tab).classList.add('active');
-    // Auto-load saat tab dibuka (tanggal sudah diisi oleh init)
-    if (b.dataset.tab === 'g') loadChartData();
-    if (b.dataset.tab === 'd') loadDashboard();
-  };
-});
-
-// ============================================================
-// MASTER HPP
-// ============================================================
-async function loadMaster() {
-  const {data, error} = await sb.from('masterhpp').select('*').order('produk');
-  if (error) { setStatus('Gagal memuat Master HPP: ' + error.message, 'err'); return; }
-  masterList = data || [];
-  masterMap = {};
-  masterList.forEach(m => { masterMap[keyOf(m.produk, m.variasi, m.ukuran)] = m; });
-  renderMasterTable();
-
-  const dp = document.getElementById('dl_produk');
-  const dv = document.getElementById('dl_variasi');
-  const du = document.getElementById('dl_ukuran');
-  const uniq = arr => [...new Set(arr.filter(Boolean))];
-
-  const defaultProduk = ['Blouse Polkadot Terbaru', 'Kemeja Polkadot'];
-  const allProduk = uniq([...defaultProduk, ...masterList.map(m => m.produk)]);
-
-  dp.innerHTML = allProduk.map(v => `<option value="${esc(v)}"></option>`).join('');
-  dv.innerHTML = uniq(masterList.map(m => m.variasi)).map(v => `<option value="${esc(v)}"></option>`).join('');
-  du.innerHTML = uniq(masterList.map(m => m.ukuran)).map(v => `<option value="${esc(v)}"></option>`).join('');
-}
-
-function renderMasterTable() {
-  const tb = document.querySelector('#tblM tbody');
-  if (!masterList.length) {
-    tb.innerHTML = '<tr><td colspan="5" class="empty">Belum ada data HPP</td></tr>'; return;
-  }
-  tb.innerHTML = masterList.map(m => `<tr>
-    <td>${esc(m.produk)}</td><td>${esc(m.variasi)}</td><td>${esc(m.ukuran)}</td>
-    <td>${rupiah(m.hpp)}</td>
-    <td><button class="del" onclick="deleteMaster('${m.id}')" title="Hapus">&times;</button></td>
-  </tr>`).join('');
-}
-
-async function deleteMaster(id) {
-  if (!confirm('Hapus data HPP ini?')) return;
-  const {error} = await sb.from('masterhpp').delete().eq('id', id);
-  if (error) { alert('Gagal hapus: ' + error.message); return; }
-  await loadMaster();
-  await loadDay(document.getElementById('selDate').value);
-}
-
-document.getElementById('btnSimpanM').addEventListener('click', async () => {
-  const produk  = document.getElementById('m_produk').value.trim();
-  const variasi = document.getElementById('m_variasi').value.trim();
-  const ukuran  = document.getElementById('m_ukuran').value.trim();
-  const hpp     = Number(document.getElementById('m_hpp').value) || 0;
-  if (!produk) { alert('Nama produk wajib diisi'); return; }
-
-  const k = keyOf(produk, variasi, ukuran);
-  const existing = masterMap[k];
-  let error;
+// Unik di database: (produk, variasi, ukuran) -> pakai upsert agar
+// tidak error "duplicate key" saat huruf besar/kecilnya berbeda.
+async function saveMasterHpp(produk, variasi, ukuran, hpp) {
+  const existing = masterMap[keyOf(produk, variasi, ukuran)];
   if (existing) {
-    ({error} = await sb.from('masterhpp').update({hpp}).eq('id', existing.id));
+    must(await sb.from('masterhpp').update({hpp}).eq('id', existing.id), 'Update Master HPP');
   } else {
-    ({error} = await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp}));
+    must(await sb.from('masterhpp').upsert(
+      {produk, variasi, ukuran, hpp},
+      {onConflict: 'produk,variasi,ukuran'}
+    ), 'Simpan Master HPP');
   }
-  if (error) { alert('Gagal simpan: ' + error.message); return; }
+}
 
-  flashMsg('m_msg', 'Tersimpan ✓', 'ok');
-  ['m_produk', 'm_variasi', 'm_ukuran', 'm_hpp'].forEach(id => document.getElementById(id).value = '');
-  await loadMaster();
+// Isi hpp_satuan transaksi dari Master HPP, dikelompokkan per nilai HPP
+// agar jumlah request ke Supabase sedikit.
+async function applyMasterHpp(rows) {
+  const byHpp = new Map();
+  rows.forEach(r => {
+    if (!r.produk) return;
+    const h = findHpp(r.produk, r.variasi, r.ukuran);
+    if (h > 0) {
+      if (!byHpp.has(h)) byHpp.set(h, []);
+      byHpp.get(h).push(r.id);
+    }
+  });
+  let n = 0;
+  for (const [h, ids] of byHpp) {
+    for (const part of chunk(ids, IN_CHUNK)) {
+      must(await sb.from('transaksi').update({hpp_satuan: h}).in('id', part), 'Hitung ulang HPP');
+      n += part.length;
+    }
+  }
+  return n;
+}
+
+function markDirty() { dash.dirty = true; }
+
+// ============================================================
+// NAVIGASI
+// ============================================================
+function showTab(t) {
+  currentTab = t;
+  qsa('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
+  qsa('.tabbar button').forEach(b => {
+    if (b.dataset.tab === t) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  const fab = $('fab');
+  if (t === 't') { fab.hidden = false; fab.setAttribute('aria-label', 'Catat transaksi'); }
+  else if (t === 'm') { fab.hidden = false; fab.setAttribute('aria-label', 'Tambah HPP'); }
+  else fab.hidden = true;
+  toggleMenu(false);
+  window.scrollTo(0, 0);
+  if (t === 'd' && dash.dirty) loadDashboard();
+}
+qsa('.tabbar button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+$('fab').addEventListener('click', () => {
+  if (currentTab === 't') openTxSheet();
+  else if (currentTab === 'm') openMasterSheet();
+});
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'add') openTxSheet();
+  else if (act === 'import') openImportSheet();
+  else if (act === 'retry') refreshAll();
+  else if (act === 'goMaster') showTab('m');
+  else if (act === 'addMaster') openMasterSheet();
+  else if (act === 'recalcPeriod') recalcPeriod();
 });
 
 // ============================================================
-// TRANSAKSI
+// NOTA (rekap gaya struk)
 // ============================================================
-async function loadDay(dateStr) {
-  if (!dateStr) return;
-  const {data, error} = await sb.from('transaksi')
-    .select('*').eq('tanggal', dateStr).order('created_at');
-  if (error) { setStatus('Gagal memuat transaksi: ' + error.message, 'err'); return; }
-  dayRows = data || [];
-
-  let adsBiaya = 0;
-  const {data: adData} = await sb.from('biayaharian')
-    .select('biaya_iklan').eq('tanggal', dateStr).maybeSingle();
-  if (adData) adsBiaya = adData.biaya_iklan || 0;
-
-  renderDayTable();
-  renderSummary(adsBiaya);
-  setStatus('');
+function calcTotals(rows, iklan) {
+  const sel   = rows.filter(r => r.status === 'Selesai');
+  const qty   = sum(sel, r => r.qty);
+  const omset = sum(sel, r => r.qty * r.harga);
+  const hpp   = sum(sel, r => r.qty * r.hpp_satuan);
+  const admin = sum(sel, r => r.biaya_admin);
+  const retur = sum(rows.filter(r => r.status === 'Retur'), r => r.qty * r.harga);
+  const profit = omset - hpp - admin - iklan;
+  const margin = omset > 0 ? profit / omset * 100 : 0;
+  const orders = new Set(sel.map(r => r.no_pesanan ? 'n:' + r.no_pesanan : 'i:' + r.id)).size;
+  const noHpp  = sel.filter(r => !(r.hpp_satuan > 0)).length;
+  return {sel, qty, omset, hpp, admin, iklan, retur, profit, margin, orders, noHpp};
 }
 
-function renderDayTable() {
-  const tb = document.querySelector('#tblT tbody');
-  const tf = document.querySelector('#tblT tfoot');
+function notaHtml({title, sub, t, print = false}) {
+  const lines = [
+    ['Penjualan', rupiah(t.omset)],
+    ['HPP', costStr(t.hpp)],
+    ['Biaya admin Shopee', costStr(t.admin)],
+    ['Biaya iklan', costStr(t.iklan)]
+  ];
+  const foot = [`${t.qty.toLocaleString('id-ID')} pcs terjual`];
+  if (t.omset > 0) foot.push(`Margin ${pct(t.margin)}%`);
+  if (t.retur > 0) foot.push(`Retur ${rupiah(t.retur)}`);
+  return `
+  <div class="nota${print ? ' print' : ''}">
+    <div class="nota-head">
+      <span class="nota-title">${esc(title)}</span>
+      <span class="nota-sub">${esc(sub)}</span>
+    </div>
+    <dl style="margin:0">
+      ${lines.map(([l, v]) => `<div class="nl"><dt>${l}</dt><i class="lead"></i><dd>${v}</dd></div>`).join('')}
+    </dl>
+    <div class="nota-total">
+      <span>Untung bersih</span>
+      <strong class="${t.profit < 0 ? 'neg' : 'pos'}">${rupiah(t.profit)}</strong>
+    </div>
+    <div class="nota-foot">${foot.map(f => `<span>${esc(f)}</span>`).join('')}</div>
+  </div>`;
+}
+function notaSkeleton() {
+  return `<div class="nota nota-skel" aria-hidden="true">
+    <i class="skel" style="height:16px;width:55%"></i>
+    <i class="skel" style="height:13px"></i><i class="skel" style="height:13px"></i>
+    <i class="skel" style="height:13px"></i><i class="skel" style="height:13px"></i>
+    <i class="skel" style="height:26px;width:70%"></i></div>`;
+}
+function skelRows(n = 3) {
+  return Array.from({length: n}, () => `<div class="row skelrow" aria-hidden="true">
+    <span class="row-main"><i class="skel" style="height:15px;width:72%"></i><i class="skel" style="height:12px;width:38%"></i></span>
+    <i class="skel" style="height:18px;width:70px"></i></div>`).join('');
+}
+
+// ============================================================
+// TRANSAKSI: muat & tampilkan
+// ============================================================
+function updateDaybar() {
+  const v = $('selDate').value || todayStr();
+  const t = todayStr();
+  $('dayLabel').textContent = fmtDay(v);
+  $('dayRel').textContent = relDay(v);
+  $('dayToday').hidden = (v === t);
+  $('dayNext').disabled = (v >= t);
+}
+
+async function loadDay(dateStr, quiet = false) {
+  if (!dateStr) return;
+  const token = ++dayReq;
+  if (!quiet) {
+    $('notaDay').innerHTML = notaSkeleton();
+    $('txList').innerHTML = skelRows(3);
+  }
+  const [rows, adRes] = await Promise.all([
+    fetchAll(
+      () => sb.from('transaksi').select('*').eq('tanggal', dateStr).order('created_at').order('id'),
+      'Memuat transaksi'
+    ),
+    sb.from('biayaharian').select('biaya_iklan').eq('tanggal', dateStr).maybeSingle()
+  ]);
+  if (token !== dayReq) return;           // ada permintaan lebih baru
+  dayRows = rows.map(normTx);
+  const adData = must(adRes, 'Memuat biaya iklan');
+  dayAds = adData ? (Number(adData.biaya_iklan) || 0) : 0;
+  renderDay();
+}
+let dayAds = 0;
+
+function renderDay() {
+  const date = $('selDate').value || todayStr();
+  const t = calcTotals(dayRows, dayAds);
+  $('notaDay').innerHTML = notaHtml({
+    title: 'Rekap harian',
+    sub: `${t.orders} pesanan selesai`,
+    t, print: !notaPrinted
+  });
+  notaPrinted = true;
+  renderTxList();
+  updateDaybar();
+}
+
+function renderTxList() {
+  const el = $('txList');
+  const counts = {all: dayRows.length, Selesai: 0, Retur: 0, Dibatalkan: 0};
+  dayRows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+  qsa('#txFilters .chip').forEach(b => {
+    b.querySelector('b').textContent = counts[b.dataset.f];
+    const on = b.dataset.f === txFilter;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 
   if (!dayRows.length) {
-    tb.innerHTML = '<tr><td colspan="10" class="empty">Belum ada transaksi di tanggal ini</td></tr>';
-    tf.innerHTML = '';
+    el.innerHTML = `<div class="empty">${ICON.receipt}
+      <h3>Belum ada transaksi di tanggal ini</h3>
+      <p>Catat satu per satu, atau import file Excel dari Shopee.</p>
+      <div class="btn-row">
+        <button class="btn primary" type="button" data-act="add">Catat transaksi</button>
+        <button class="btn secondary" type="button" data-act="import">Import dari Excel</button>
+      </div></div>`;
     return;
   }
 
-  let sumQty = 0, sumJual = 0, sumHpp = 0, sumAdmin = 0, sumProfit = 0;
+  const q = txQuery.trim().toLowerCase();
+  const rows = dayRows.filter(r =>
+    (txFilter === 'all' || r.status === txFilter) &&
+    (!q || [r.produk, r.no_pesanan, r.variasi, r.ukuran].join(' ').toLowerCase().includes(q)));
 
-  tb.innerHTML = dayRows.map(r => {
-    const total    = (r.qty || 0) * (r.harga || 0);
-    const hppTotal = (r.qty || 0) * (r.hpp_satuan || 0);
-    const profit   = r.status === 'Selesai' ? (total - hppTotal - (r.biaya_admin || 0)) : 0;
-    // FIX: cek null juga bukan hanya 0
-    const warn     = (!r.hpp_satuan && r.hpp_satuan !== undefined)
-      ? ' <span class="warn">⚠ HPP?</span>' : '';
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty"><h3>Tidak ada yang cocok</h3><p>Coba kata kunci lain atau ganti filter status.</p></div>`;
+    return;
+  }
 
-    if (r.status === 'Selesai') {
-      sumQty    += (r.qty || 0);
-      sumJual   += total;
-      sumHpp    += hppTotal;
-      sumAdmin  += (r.biaya_admin || 0);
-      sumProfit += profit;
-    }
-
-    const varParts = [r.variasi, r.ukuran].filter(Boolean).map(esc);
-    const labelVar = varParts.length ? varParts.join(' / ') : '-';
-
-    return `<tr>
-      <td>${esc(r.no_pesanan)}</td>
-      <td>${esc(r.produk)}</td>
-      <td>${labelVar}${warn}</td>
-      <td>${r.qty}</td>
-      <td>${rupiah(total)}</td>
-      <td>${rupiah(hppTotal)}</td>
-      <td>${rupiah(r.biaya_admin)}</td>
-      <td><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td>
-      <td style="color:${profit < 0 ? 'var(--danger)' : ''}">${rupiah(profit)}</td>
-      <td><button class="del" onclick="deleteTransaksi('${r.id}')" title="Hapus">&times;</button></td>
-    </tr>`;
+  el.innerHTML = rows.map(r => {
+    const total  = r.qty * r.harga;
+    const profit = total - r.qty * r.hpp_satuan - r.biaya_admin;
+    const varLabel = [r.variasi, r.ukuran].filter(Boolean).join(', ');
+    const amt = r.status === 'Selesai'
+      ? `<b class="${profit < 0 ? 'neg' : 'pos'}">${rupiah(profit)}</b><small>untung</small>`
+      : `<span class="tag ${esc(r.status)}">${esc(r.status)}</span>`;
+    return `<button type="button" class="row s-${esc(r.status)}" data-id="${esc(r.id)}">
+      <span class="row-main">
+        <span class="row-title">${esc(r.produk)}</span>
+        ${varLabel ? `<span class="row-sub">${esc(varLabel)}</span>` : ''}
+        <span class="row-meta">
+          <span>${r.qty} × ${rupiah(r.harga)}</span>
+          ${r.no_pesanan ? `<span>${esc(r.no_pesanan)}</span>` : ''}
+          ${!(r.hpp_satuan > 0) && r.status === 'Selesai' ? '<span class="tag warn">HPP kosong</span>' : ''}
+        </span>
+      </span>
+      <span class="row-amt">${amt}</span>
+    </button>`;
   }).join('');
-
-  tf.innerHTML = `<tr>
-    <td colspan="3" style="text-align:right; font-size:11px; color:var(--muted);">TOTAL (Selesai):</td>
-    <td>${sumQty}</td>
-    <td>${rupiah(sumJual)}</td>
-    <td>${rupiah(sumHpp)}</td>
-    <td>${rupiah(sumAdmin)}</td>
-    <td></td>
-    <td style="color:${sumProfit < 0 ? 'var(--danger)' : 'var(--success)'}">${rupiah(sumProfit)}</td>
-    <td></td>
-  </tr>`;
 }
 
-function renderSummary(adsBiaya) {
-  const selesai   = dayRows.filter(r => r.status === 'Selesai');
-  const totalQty  = selesai.reduce((s, r) => s + (r.qty || 0), 0);
-  const totalJual = selesai.reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
-  const totalHpp  = selesai.reduce((s, r) => s + (r.qty || 0) * (r.hpp_satuan || 0), 0);
-  const totalAdmin= selesai.reduce((s, r) => s + (r.biaya_admin || 0), 0);
-  const retur     = dayRows.filter(r => r.status === 'Retur')
-                           .reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
-  const profit    = totalJual - totalHpp - totalAdmin - adsBiaya;
+$('txList').addEventListener('click', e => {
+  const b = e.target.closest('.row[data-id]');
+  if (!b) return;
+  const row = dayRows.find(r => String(r.id) === b.dataset.id);
+  if (row) openTxSheet(row);
+});
+$('txSearch').addEventListener('input', e => { txQuery = e.target.value; renderTxList(); });
+$('txFilters').addEventListener('click', e => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  txFilter = b.dataset.f;
+  renderTxList();
+});
 
-  document.getElementById('summaryBox').innerHTML = `
-    <div class="stat"><div class="lbl">Item Terjual</div><div class="val">${totalQty} pcs</div></div>
-    <div class="stat"><div class="lbl">Total Penjualan</div><div class="val">${rupiah(totalJual)}</div></div>
-    <div class="stat"><div class="lbl">Total HPP</div><div class="val">${rupiah(totalHpp)}</div></div>
-    <div class="stat"><div class="lbl">Biaya Admin</div><div class="val">${rupiah(totalAdmin)}</div></div>
-    <div class="stat"><div class="lbl">Biaya Iklan</div><div class="val">${rupiah(adsBiaya)}</div></div>
-    <div class="stat"><div class="lbl">Nilai Retur</div><div class="val">${rupiah(retur)}</div></div>
-    <div class="stat profit ${profit < 0 ? 'neg' : ''}">
-      <div class="lbl">Profit Bersih</div><div class="val">${rupiah(profit)}</div>
-    </div>`;
+// ---- navigasi tanggal ----
+function goDate(dateStr) {
+  $('selDate').value = dateStr;
+  updateDaybar();
+  loadDay(dateStr).catch(e => { fail(e); showDayError(); });
 }
+$('selDate').addEventListener('change', e => { if (e.target.value) goDate(e.target.value); else updateDaybar(); });
+$('selDate').addEventListener('click', e => { try { e.target.showPicker && e.target.showPicker(); } catch (_) {} });
+$('dayPrev').addEventListener('click', () => goDate(addDays($('selDate').value || todayStr(), -1)));
+$('dayNext').addEventListener('click', () => {
+  const next = addDays($('selDate').value || todayStr(), 1);
+  if (next <= todayStr()) goDate(next);
+});
+$('dayToday').addEventListener('click', () => goDate(todayStr()));
 
-async function deleteTransaksi(id) {
-  if (!confirm('Hapus transaksi ini?')) return;
-  const {error} = await sb.from('transaksi').delete().eq('id', id);
-  if (error) { alert('Gagal hapus: ' + error.message); return; }
-  await loadDay(document.getElementById('selDate').value);
+function showDayError() {
+  $('notaDay').innerHTML = '';
+  $('txList').innerHTML = `<div class="empty">${ICON.warn}
+    <h3>Data belum bisa dimuat</h3>
+    <p>Periksa koneksi internet, lalu coba lagi.</p>
+    <div class="btn-row"><button class="btn primary" type="button" data-act="retry">Coba lagi</button></div></div>`;
 }
-
-document.getElementById('selDate').addEventListener('change', e => loadDay(e.target.value));
 
 // ============================================================
-// FIX #3 — autoFillHpp
-// Bug lama: setiap kali variasi/ukuran diubah, HPP yang sudah
-// diisi manual ikut tertimpa. Sekarang hanya mengisi jika field
-// HPP masih kosong.
+// LEMBAR TRANSAKSI (tambah & ubah)
 // ============================================================
+function setStatusSeg(v) {
+  $('t_status').value = v;
+  qsa('#t_statusSeg button').forEach(b => b.setAttribute('aria-checked', b.dataset.v === v ? 'true' : 'false'));
+  updatePreview();
+}
+$('t_statusSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]');
+  if (b) setStatusSeg(b.dataset.v);
+});
+
+function renderQuickPicks() {
+  const wrap = $('t_quickWrap');
+  const items = masterList.slice(0, 10);
+  wrap.hidden = !!txEditingId || !items.length;
+  $('t_quick').innerHTML = items.map((m, i) => {
+    const extra = [m.variasi, m.ukuran].filter(Boolean).join(' ');
+    const label = m.produk + (extra ? ' ' + extra : '');
+    return `<button type="button" class="chip pick" data-i="${i}" title="${esc(label)}">${esc(label)}</button>`;
+  }).join('');
+}
+$('t_quick').addEventListener('click', e => {
+  const b = e.target.closest('.pick');
+  if (!b) return;
+  const m = masterList[Number(b.dataset.i)];
+  if (!m) return;
+  $('t_produk').value = m.produk || '';
+  $('t_variasi').value = m.variasi || '';
+  $('t_ukuran').value = m.ukuran || '';
+  setMoney('t_hpp', Number(m.hpp) > 0 ? Number(m.hpp) : '');
+  updatePreview(); updateHppHint();
+  $('t_harga').focus();
+});
+
+function updatePreview() {
+  const qty = Number($('t_qty').value) || 0;
+  const total = qty * numOf('t_harga');
+  const hppT  = qty * numOf('t_hpp');
+  const profit = total - hppT - numOf('t_admin');
+  const counted = $('t_status').value === 'Selesai';
+  $('pv_total').textContent = rupiah(total);
+  $('pv_hpp').textContent = rupiah(hppT);
+  const pv = $('pv_profit');
+  if (counted) { pv.textContent = rupiah(profit); pv.className = profit < 0 ? 'neg' : 'pos'; }
+  else { pv.textContent = 'Tidak dihitung'; pv.className = 'muted'; }
+}
+
+function updateHppHint() {
+  const hint = $('t_hint');
+  const set = (txt, warn = false) => { hint.textContent = txt; hint.className = 'hint' + (warn ? ' warn' : ''); };
+  if (txEditingId) { set('Perubahan HPP hanya berlaku untuk transaksi ini.'); return; }
+  const p = $('t_produk').value.trim();
+  if (!p) { set(''); return; }
+  const m = findHpp(p, $('t_variasi').value, $('t_ukuran').value);
+  const cur = numOf('t_hpp');
+  if (cur > 0 && m > 0 && cur === m) set('HPP diambil dari Master HPP.');
+  else if (cur > 0 && m > 0) set(`Beda dari Master HPP (${rupiah(m)}). Master ikut diperbarui saat disimpan.`, true);
+  else if (cur > 0) set('Produk ini belum ada di Master HPP. Akan ditambahkan saat disimpan.');
+  else if (m > 0) set(`HPP dikosongkan, memakai Master HPP ${rupiah(m)}.`);
+  else set('HPP belum ada. Isi sekarang agar untung terhitung.', true);
+}
+
 function autoFillHpp() {
-  const hppField = document.getElementById('t_hpp');
-  if (hppField.value !== '') return; // Jangan timpa input manual
-  const p = document.getElementById('t_produk').value.trim();
-  const v = document.getElementById('t_variasi').value.trim();
-  const u = document.getElementById('t_ukuran').value.trim();
+  if (txEditingId) return;
+  if ($('t_hpp').value !== '') return;
+  const p = $('t_produk').value.trim();
   if (!p) return;
-  const h = findHpp(p, v, u);
-  if (h > 0) hppField.value = h;
+  const h = findHpp(p, $('t_variasi').value, $('t_ukuran').value);
+  if (h > 0) setMoney('t_hpp', h);
+}
+$('t_produk').addEventListener('change', () => {
+  if (txEditingId) return;
+  $('t_hpp').value = '';
+  autoFillHpp(); updatePreview(); updateHppHint();
+});
+['t_produk', 't_variasi', 't_ukuran'].forEach(id => $(id).addEventListener('input', autoFillHpp));
+$('sheetTx').addEventListener('input', e => {
+  if (e.target.id === 't_produk') e.target.removeAttribute('aria-invalid');
+  updatePreview(); updateHppHint();
+});
+$('t_qtyMinus').addEventListener('click', () => { $('t_qty').value = Math.max(1, (Number($('t_qty').value) || 1) - 1); updatePreview(); });
+$('t_qtyPlus').addEventListener('click', () => { $('t_qty').value = (Number($('t_qty').value) || 0) + 1; updatePreview(); });
+
+function openTxSheet(row = null) {
+  txEditingId = row ? row.id : null;
+  const add = !row;
+  $('sheetTxTitle').textContent = add ? 'Catat transaksi' : 'Edit transaksi';
+  $('btnTxSave').textContent = add ? 'Simpan' : 'Simpan perubahan';
+  $('btnTxSaveMore').hidden = !add;
+  $('btnTxDelete').hidden = add;
+  $('t_produk').removeAttribute('aria-invalid');
+
+  if (add) {
+    $('t_produk').value = ''; $('t_variasi').value = ''; $('t_ukuran').value = '';
+    $('t_qty').value = 1; setMoney('t_harga', ''); setMoney('t_hpp', ''); setMoney('t_admin', 0);
+    $('t_no').value = '';
+    $('t_tanggal').value = $('selDate').value || todayStr();
+    setStatusSeg('Selesai');
+  } else {
+    $('t_produk').value = row.produk || '';
+    $('t_variasi').value = row.variasi || '';
+    $('t_ukuran').value = row.ukuran || '';
+    $('t_qty').value = row.qty || 1;
+    setMoney('t_harga', row.harga);
+    setMoney('t_hpp', row.hpp_satuan > 0 ? row.hpp_satuan : '');
+    setMoney('t_admin', row.biaya_admin);
+    $('t_no').value = row.no_pesanan || '';
+    $('t_tanggal').value = row.tanggal || $('selDate').value;
+    setStatusSeg(row.status || 'Selesai');
+  }
+  renderQuickPicks(); updatePreview(); updateHppHint();
+  openSheet('sheetTx');
 }
 
-// Saat produk diganti → reset HPP supaya auto-fill berjalan untuk produk baru
-document.getElementById('t_produk').addEventListener('change', () => {
-  document.getElementById('t_hpp').value = '';
-  autoFillHpp();
-});
-document.getElementById('t_produk').addEventListener('input', autoFillHpp);
-document.getElementById('t_variasi').addEventListener('input', autoFillHpp);
-document.getElementById('t_ukuran').addEventListener('input', autoFillHpp);
+let txSaving = false;
+async function saveTx(addAnother) {
+  if (txSaving) return;
+  const produk = $('t_produk').value.trim();
+  const qty = Number($('t_qty').value) || 0;
+  if (!produk) {
+    $('t_produk').setAttribute('aria-invalid', 'true'); $('t_produk').focus();
+    toast('Isi nama produk dulu.', {kind: 'err'}); return;
+  }
+  if (qty <= 0) { $('t_qty').focus(); toast('Jumlah minimal 1.', {kind: 'err'}); return; }
 
-document.getElementById('btnSimpanT').addEventListener('click', async () => {
-  const btn = document.getElementById('btnSimpanT');
-  btn.disabled = true;
+  const variasi = $('t_variasi').value.trim();
+  const ukuran = $('t_ukuran').value.trim();
+  const harga = numOf('t_harga');
+  const status = $('t_status').value;
+  const biaya_admin = numOf('t_admin');
+  const no_pesanan = $('t_no').value.trim();
+  const tanggal = $('t_tanggal').value || todayStr();
+  const inputHpp = numOf('t_hpp');
+
+  if (harga <= 0 && status === 'Selesai') {
+    const ok = await askConfirm({title: 'Harga masih Rp 0',
+      message: 'Transaksi akan tercatat tanpa penjualan. Tetap simpan?', ok: 'Tetap simpan'});
+    if (!ok) return;
+  }
+
+  txSaving = true;
+  ['btnTxSave', 'btnTxSaveMore', 'btnTxDelete'].forEach(id => $(id).disabled = true);
   try {
-    const tanggal     = document.getElementById('selDate').value || todayStr();
-    const produk      = document.getElementById('t_produk').value.trim();
-    const variasi     = document.getElementById('t_variasi').value.trim();
-    const ukuran      = document.getElementById('t_ukuran').value.trim();
-    const qty         = Number(document.getElementById('t_qty').value) || 0;
-    const harga       = Number(document.getElementById('t_harga').value) || 0;
-    const status      = document.getElementById('t_status').value;
-    const biaya_admin = Number(document.getElementById('t_admin').value) || 0;
-    const no_pesanan  = document.getElementById('t_no').value.trim();
-    const inputHpp    = Number(document.getElementById('t_hpp').value) || 0;
-
-    if (!produk || qty <= 0) { alert('Produk dan Qty wajib diisi'); return; }
-    if (harga <= 0 && status === 'Selesai') {
-      if (!confirm('Harga 0. Tetap simpan?')) return;
-    }
-
     let hpp_satuan = inputHpp;
-
-    if (inputHpp > 0) {
-      // Jika HPP berbeda dari master, update master sekaligus
-      const existingHpp = findHpp(produk, variasi, ukuran);
-      if (existingHpp !== inputHpp) {
-        const k = keyOf(produk, variasi, ukuran);
-        const existMaster = masterMap[k];
-        if (existMaster) {
-          await sb.from('masterhpp').update({hpp: inputHpp}).eq('id', existMaster.id);
-        } else {
-          await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp: inputHpp});
+    if (!txEditingId) {
+      if (inputHpp > 0) {
+        if (findHpp(produk, variasi, ukuran) !== inputHpp) {
+          await saveMasterHpp(produk, variasi, ukuran, inputHpp);
+          await loadMaster();
         }
-        await loadMaster();
+      } else {
+        hpp_satuan = findHpp(produk, variasi, ukuran);
       }
+      must(await sb.from('transaksi').insert({
+        tanggal, no_pesanan, produk, variasi, ukuran, qty, harga, status, biaya_admin, hpp_satuan
+      }), 'Simpan transaksi');
     } else {
-      hpp_satuan = findHpp(produk, variasi, ukuran);
+      if (!(inputHpp > 0)) hpp_satuan = findHpp(produk, variasi, ukuran);
+      must(await sb.from('transaksi').update({
+        tanggal, no_pesanan, produk, variasi, ukuran, qty, harga, status, biaya_admin, hpp_satuan
+      }).eq('id', txEditingId), 'Simpan perubahan');
     }
 
-    const {error} = await sb.from('transaksi').insert({
-      tanggal, no_pesanan, produk, variasi, ukuran, qty, harga, status, biaya_admin, hpp_satuan
-    });
-    if (error) { alert('Gagal simpan: ' + error.message); return; }
+    markDirty();
+    const wasEditing = !!txEditingId;
+    if (tanggal !== $('selDate').value) { $('selDate').value = tanggal; }
+    updateDaybar();
+    await loadDay(tanggal, true);
 
-    flashMsg('t_msg',
-      hpp_satuan > 0 ? 'Tersimpan ✓' : 'Tersimpan (HPP belum ada — cek Master HPP)',
-      hpp_satuan > 0 ? 'ok' : 'err', 3000);
+    if (wasEditing) toast('Perubahan disimpan.');
+    else if (hpp_satuan > 0) toast('Transaksi disimpan.');
+    else toast('Transaksi disimpan, tapi HPP belum terisi.', {kind: 'warn'});
 
-    ['t_no', 't_produk', 't_variasi', 't_ukuran', 't_harga', 't_hpp']
-      .forEach(id => document.getElementById(id).value = '');
-    document.getElementById('t_qty').value = 1;
-    document.getElementById('t_admin').value = 0;
-    document.getElementById('t_status').value = 'Selesai';
-    document.getElementById('t_produk').focus();
-    await loadDay(tanggal);
+    if (addAnother && !wasEditing) {
+      $('t_no').value = ''; $('t_qty').value = 1; setMoney('t_admin', 0); setStatusSeg('Selesai');
+      updatePreview(); updateHppHint();
+      $('t_no').focus();
+    } else {
+      closeSheet();
+    }
+  } catch (e) {
+    fail(e);
   } finally {
-    btn.disabled = false;
+    txSaving = false;
+    ['btnTxSave', 'btnTxSaveMore', 'btnTxDelete'].forEach(id => $(id).disabled = false);
   }
+}
+$('sheetTx').addEventListener('submit', e => { e.preventDefault(); saveTx(false); });
+$('btnTxSaveMore').addEventListener('click', () => saveTx(true));
+
+$('btnTxDelete').addEventListener('click', async () => {
+  if (!txEditingId) return;
+  const ok = await askConfirm({title: 'Hapus transaksi ini?',
+    message: 'Transaksi akan dihapus permanen dan tidak bisa dikembalikan.', ok: 'Hapus transaksi', danger: true});
+  if (!ok) return;
+  try {
+    must(await sb.from('transaksi').delete().eq('id', txEditingId), 'Hapus transaksi');
+    markDirty();
+    closeSheet();
+    await loadDay($('selDate').value, true);
+    toast('Transaksi dihapus.');
+  } catch (e) { fail(e); }
 });
 
 // ============================================================
-// FIX #4 — Tombol Hitung Ulang HPP
-// Update semua transaksi di tanggal aktif yang hpp_satuan-nya
-// 0/null menggunakan data Master HPP terkini.
+// MENU AKSI: hitung ulang HPP, export CSV
 // ============================================================
-document.getElementById('btnRecalcHpp').addEventListener('click', async () => {
-  const dateStr = document.getElementById('selDate').value;
-  if (!dateStr) { alert('Pilih tanggal terlebih dahulu'); return; }
+$('btnRecalcHpp').addEventListener('click', async () => {
+  toggleMenu(false);
+  const dateStr = $('selDate').value;
+  if (!dateStr) return;
+  const zero = dayRows.filter(r => !(r.hpp_satuan > 0) && r.produk);
+  if (!zero.length) { toast('Semua HPP di tanggal ini sudah terisi.'); return; }
+  try {
+    const n = await applyMasterHpp(zero);
+    if (n > 0) { markDirty(); await loadDay(dateStr, true); toast(`${n} transaksi diperbarui HPP-nya.`); }
+    else toast('Belum ada HPP yang cocok. Isi dulu di tab Master HPP.', {kind: 'warn'});
+  } catch (e) { fail(e); }
+});
 
-  const zeroRows = dayRows.filter(r => (!r.hpp_satuan || r.hpp_satuan === 0) && r.produk);
-  if (!zeroRows.length) {
-    flashMsg('recalc_msg', 'Semua HPP sudah terisi ✓', 'ok'); return;
-  }
+async function recalcPeriod() {
+  const start = $('d_start').value, end = $('d_end').value;
+  if (!start || !end) return;
+  try {
+    const rows = await fetchAll(
+      () => sb.from('transaksi').select('id, produk, variasi, ukuran, hpp_satuan')
+        .gte('tanggal', start).lte('tanggal', end)
+        .or('hpp_satuan.is.null,hpp_satuan.eq.0').order('id'),
+      'Hitung ulang HPP');
+    const n = await applyMasterHpp(rows);
+    if (n > 0) {
+      toast(`${n} transaksi diperbarui HPP-nya.`);
+      markDirty();
+      await loadDashboard();
+      await loadDay($('selDate').value, true);
+    } else toast('Belum ada HPP yang cocok. Isi dulu di tab Master HPP.', {kind: 'warn'});
+  } catch (e) { fail(e); }
+}
 
-  let updated = 0;
-  for (const r of zeroRows) {
-    const hpp = findHpp(r.produk, r.variasi, r.ukuran);
-    if (hpp > 0) {
-      const {error} = await sb.from('transaksi').update({hpp_satuan: hpp}).eq('id', r.id);
-      if (!error) updated++;
-    }
-  }
+$('btnExport').addEventListener('click', async () => {
+  toggleMenu(false);
+  toast('Menyiapkan file CSV…', {ms: 2000});
+  try {
+    const rows = (await fetchAll(
+      () => sb.from('transaksi').select('*').order('tanggal').order('id'), 'Export')).map(normTx);
+    if (!rows.length) { toast('Belum ada transaksi untuk diunduh.', {kind: 'warn'}); return; }
 
-  if (updated > 0) {
-    flashMsg('recalc_msg', `${updated} transaksi HPP diperbarui ✓`, 'ok', 3000);
-    await loadDay(dateStr);
-  } else {
-    flashMsg('recalc_msg', 'Tidak ada HPP cocok. Isi dulu di tab Master HPP.', 'err', 4000);
-  }
+    const headers = ['Tanggal', 'No. Pesanan', 'Produk', 'Variasi', 'Ukuran', 'Qty',
+      'Harga Satuan', 'Total Penjualan', 'Status', 'HPP Satuan', 'Total HPP', 'Biaya Admin Shopee', 'Profit Transaksi'];
+    const csv = [headers.join(';')];
+    rows.forEach(r => {
+      const total = r.qty * r.harga, hppT = r.qty * r.hpp_satuan;
+      const profit = r.status === 'Selesai' ? (total - hppT - r.biaya_admin) : 0;
+      csv.push([r.tanggal, r.no_pesanan, r.produk, r.variasi, r.ukuran, r.qty, r.harga, total, r.status,
+        r.hpp_satuan, hppT, r.biaya_admin, profit]
+        .map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(';'));
+    });
+    const blob = new Blob(['﻿' + csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `penjualan-shopee-${todayStr()}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(`CSV diunduh (${rows.length} baris).`);
+  } catch (e) { fail(e); }
 });
 
 // ============================================================
 // IMPORT EXCEL
-// FIX #5 — cellDates:true agar tanggal Excel diparsing benar
-// FIX #6 — income file: baca qty dari kolom "Jumlah"
-// FIX #7 — cek duplikat no_pesanan sebelum insert
+// - Duplikat dicek berdasarkan No. Pesanan di SEMUA tanggal
+//   (satu pesanan boleh punya beberapa baris produk).
+// - Insert dilakukan per batch agar tidak melebihi batas request.
 // ============================================================
-document.getElementById('btnUploadExcel').addEventListener('click', () => {
-  const fileInput = document.getElementById('fileExcel');
-  if (!fileInput.files.length) { alert('Pilih file Excel terlebih dahulu!'); return; }
+function openImportSheet() {
+  $('fileExcel').value = '';
+  $('fileName').textContent = '.xlsx, .xls, atau .csv';
+  $('dropzone').classList.remove('has-file');
+  $('btnUploadExcel').disabled = true;
+  setImpMsg('');
+  openSheet('sheetImp');
+}
+function setImpMsg(text, kind = '') {
+  const el = $('excel_msg');
+  el.hidden = !text;
+  el.textContent = text;
+  el.className = 'impmsg' + (kind ? ' ' + kind : '');
+}
+$('btnOpenImport').addEventListener('click', openImportSheet);
+$('fileExcel').addEventListener('change', e => {
+  const f = e.target.files[0];
+  $('dropzone').classList.toggle('has-file', !!f);
+  $('fileName').textContent = f ? f.name : '.xlsx, .xls, atau .csv';
+  $('btnUploadExcel').disabled = !f;
+  setImpMsg('');
+});
 
-  const file    = fileInput.files[0];
-  const reader  = new FileReader();
-  const msgEl   = document.getElementById('excel_msg');
+$('btnUploadExcel').addEventListener('click', () => {
+  const fileInput = $('fileExcel');
+  if (!fileInput.files.length) return;
+  if (typeof XLSX === 'undefined') {
+    setImpMsg('Pustaka Excel belum termuat. Periksa internet, lalu muat ulang halaman.', 'err'); return;
+  }
+  const btn = $('btnUploadExcel');
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  btn.disabled = true;
+
+  reader.onerror = () => { btn.disabled = false; setImpMsg('File tidak bisa dibaca. Coba pilih ulang file-nya.', 'err'); };
 
   reader.onload = async (e) => {
     try {
-      msgEl.textContent = 'Membaca file…'; msgEl.className = 'msg';
-
+      setImpMsg('Membaca file…');
       const data = new Uint8Array(e.target.result);
-      // FIX: tambah cellDates:true agar sel tanggal di-parse sebagai JS Date
       const workbook = XLSX.read(data, {type: 'array', cellDates: true});
 
-      let sheetName = workbook.SheetNames.find(
-        s => String(s).toLowerCase().includes('penghasilan')
-      );
+      let sheetName = workbook.SheetNames.find(s => String(s).toLowerCase().includes('penghasilan'));
       if (!sheetName) sheetName = workbook.SheetNames[0];
 
-      const sheet   = workbook.Sheets[sheetName];
+      const sheet = workbook.Sheets[sheetName];
       const rawRows = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ''});
 
       let headerIdx = -1, fileType = '';
       for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
         const rowStr = rawRows[i].map(x => String(x).trim());
-        if (rowStr.includes('No. Pesanan') && rowStr.includes('Total Penghasilan')) {
-          headerIdx = i; fileType = 'income'; break;
-        }
-        if (rowStr.includes('No. Pesanan') &&
-           (rowStr.includes('Status Pesanan') || rowStr.includes('Waktu Pesanan Dibuat'))) {
+        if (rowStr.includes('No. Pesanan') && rowStr.includes('Total Penghasilan')) { headerIdx = i; fileType = 'income'; break; }
+        if (rowStr.includes('No. Pesanan') && (rowStr.includes('Status Pesanan') || rowStr.includes('Waktu Pesanan Dibuat'))) {
           headerIdx = i; fileType = 'order'; break;
         }
       }
-
       if (headerIdx === -1) {
-        alert('Format file tidak dikenali. Pastikan file Order atau Penghasilan dari Shopee.');
-        msgEl.textContent = ''; return;
+        setImpMsg('Format file tidak dikenali. Pastikan ini file Order atau Penghasilan dari Shopee.', 'err');
+        btn.disabled = false; return;
       }
 
       const rows = XLSX.utils.sheet_to_json(sheet, {range: headerIdx, defval: '', cellDates: true});
       const transactions = [];
 
-      // --- INCOME FILE ---
       if (fileType === 'income') {
         rows.forEach(row => {
-          const lihat     = String(row['Lihat berdasarkan'] || '').toLowerCase().trim();
+          const lihat = String(row['Lihat berdasarkan'] || '').toLowerCase().trim();
           const noPesanan = row['No. Pesanan'];
           if (!noPesanan || lihat !== 'sku') return;
 
-          // FIX: gunakan parseExcelDate
           const tanggal = parseExcelDate(row['Waktu Pesanan Dibuat']);
-          const produk  = String(row['Nama Produk'] || '').trim();
+          const produk = String(row['Nama Produk'] || '').trim();
           if (!produk) return;
 
-          // FIX: baca qty dari kolom "Jumlah" jika ada
-          const qty        = parseInt(row['Jumlah'] || row['Qty'] || 1) || 1;
+          const qty = parseInt(row['Jumlah'] || row['Qty'] || 1) || 1;
           const hargaTotal = parseMoney(row['Harga Produk']);
-          // Hitung harga satuan dari total ÷ qty
           const hargaSatuan = qty > 1 ? Math.round(hargaTotal / qty) : hargaTotal;
-
-          const penghasilan  = parseMoney(row['Total Penghasilan']);
+          const penghasilan = parseMoney(row['Total Penghasilan']);
           const pengembalian = parseMoney(row['Jumlah Pengembalian Dana ke Pembeli']);
 
           let status = 'Selesai';
@@ -817,539 +1626,585 @@ document.getElementById('btnUploadExcel').addEventListener('click', () => {
             potonganAdmin = hargaTotal - penghasilan;
             if (potonganAdmin < 0) potonganAdmin = 0;
           }
-
-          const hpp_satuan = findHpp(produk);
-
           transactions.push({
-            tanggal, no_pesanan: String(noPesanan), produk,
-            variasi: '', ukuran: '', qty,
-            harga: hargaSatuan, status, biaya_admin: potonganAdmin, hpp_satuan
+            tanggal, no_pesanan: String(noPesanan), produk, variasi: '', ukuran: '', qty,
+            harga: hargaSatuan, status, biaya_admin: potonganAdmin, hpp_satuan: findHpp(produk)
           });
         });
-
-      // --- ORDER FILE ---
       } else if (fileType === 'order') {
         rows.forEach(row => {
           const noPesanan = row['No. Pesanan'];
           if (!noPesanan) return;
 
-          // FIX: gunakan parseExcelDate
           const tanggal = parseExcelDate(row['Waktu Pesanan Dibuat']);
-          const produk  = String(row['Nama Produk'] || '').trim();
+          const produk = String(row['Nama Produk'] || '').trim();
           if (!produk) return;
 
           const rawVariasi = String(row['Nama Variasi'] || '').trim();
           let variasi = rawVariasi, ukuran = '';
           if (rawVariasi.includes(',')) {
             const parts = rawVariasi.split(',');
-            ukuran  = parts.pop().trim();
+            ukuran = parts.pop().trim();
             variasi = parts.join(',').trim();
           }
 
-          const qty        = parseInt(row['Jumlah']) || 1;
-          const harga      = parseMoney(row['Harga Setelah Diskon'] || row['Harga Produk']);
-          const subtotal   = parseMoney(row['Subtotal Pesanan']);
+          const qty = parseInt(row['Jumlah']) || 1;
+          const harga = parseMoney(row['Harga Setelah Diskon'] || row['Harga Produk']);
+          const subtotal = parseMoney(row['Subtotal Pesanan']);
           const totalBayar = parseMoney(row['Total Pembayaran']);
 
           let potonganAdmin = 0;
-          if (subtotal > 0 && totalBayar > 0 && subtotal > totalBayar) {
-            potonganAdmin = subtotal - totalBayar;
-          }
+          if (subtotal > 0 && totalBayar > 0 && subtotal > totalBayar) potonganAdmin = subtotal - totalBayar;
 
           const rawStatus = String(row['Status Pesanan'] || '').toLowerCase();
           let status = 'Selesai';
           if (rawStatus.includes('batal')) status = 'Dibatalkan';
           else if (rawStatus.includes('retur') || rawStatus.includes('pengembalian')) status = 'Retur';
 
-          const hpp_satuan = findHpp(produk, variasi, ukuran);
-
           transactions.push({
-            tanggal, no_pesanan: String(noPesanan), produk, variasi, ukuran,
-            qty, harga, status, biaya_admin: potonganAdmin, hpp_satuan
+            tanggal, no_pesanan: String(noPesanan), produk, variasi, ukuran, qty, harga, status,
+            biaya_admin: potonganAdmin, hpp_satuan: findHpp(produk, variasi, ukuran)
           });
         });
       }
 
       if (!transactions.length) {
-        alert('Tidak ada data valid untuk diimport dari file ini.');
-        msgEl.textContent = ''; return;
+        setImpMsg('Tidak ada data yang bisa diimport dari file ini.', 'err');
+        btn.disabled = false; return;
       }
 
-      // FIX #7: cek duplikat — filter no_pesanan yang sudah ada di tanggal yg sama
-      msgEl.textContent = `Memeriksa ${transactions.length} baris data…`;
-      const uniqueDates = [...new Set(transactions.map(t => t.tanggal))];
-      const {data: existingTx} = await sb.from('transaksi')
-        .select('no_pesanan').in('tanggal', uniqueDates);
-      const existingNos = new Set((existingTx || []).map(r => String(r.no_pesanan)));
-      const newTx   = transactions.filter(t => !existingNos.has(String(t.no_pesanan)));
+      setImpMsg(`Memeriksa ${transactions.length} baris…`);
+      const allNos = [...new Set(transactions.map(t => t.no_pesanan))];
+      const existingNos = await findExistingOrderNos(allNos);
+      const newTx = transactions.filter(t => !existingNos.has(String(t.no_pesanan)));
       const dupCount = transactions.length - newTx.length;
 
       if (!newTx.length) {
-        alert('Semua data sudah ada di database. Tidak ada yang baru diimport.');
-        msgEl.textContent = ''; return;
+        setImpMsg('Semua pesanan di file ini sudah ada di database. Tidak ada yang baru.', 'ok');
+        btn.disabled = false; return;
       }
 
-      msgEl.textContent =
-        `Menyimpan ${newTx.length} data${dupCount > 0 ? ` (${dupCount} dilewati karena duplikat)` : ''}…`;
-
-      const {error} = await sb.from('transaksi').insert(newTx);
-      if (error) {
-        alert('Gagal simpan: ' + error.message);
-        msgEl.textContent = ''; msgEl.className = 'msg err';
-        msgEl.textContent = '❌ Gagal import';
-      } else {
-        const tipe   = fileType === 'income' ? 'Penghasilan' : 'Order';
-        let pesan    = `✓ Import ${tipe}: ${newTx.length} transaksi disimpan`;
-        if (dupCount > 0) pesan += `, ${dupCount} dilewati (duplikat)`;
-        msgEl.className = 'msg ok';
-        msgEl.textContent = pesan;
-
-        document.getElementById('fileExcel').value = '';
-        const tglLoad = newTx[0].tanggal;
-        document.getElementById('selDate').value = tglLoad;
-        await loadDay(tglLoad);
-        setTimeout(() => { msgEl.textContent = ''; msgEl.className = 'msg'; }, 6000);
+      const batches = batchByOrder(newTx, INSERT_CHUNK);
+      let saved = 0;
+      try {
+        for (const part of batches) {
+          setImpMsg(`Menyimpan ${saved} dari ${newTx.length} baris…`);
+          must(await sb.from('transaksi').insert(part), 'Simpan import');
+          saved += part.length;
+        }
+      } catch (err) {
+        markDirty();
+        setImpMsg(`Gagal setelah ${saved} dari ${newTx.length} baris tersimpan. ` +
+                  'Ulangi import: pesanan yang sudah masuk akan dilewati otomatis.', 'err');
+        throw err;
       }
+
+      markDirty();
+      const tipe = fileType === 'income' ? 'Penghasilan' : 'Order';
+      toast(`Import ${tipe}: ${saved} baris disimpan` + (dupCount > 0 ? `, ${dupCount} dilewati (duplikat).` : '.'), {ms: 5000});
+      closeSheet();
+      fileInput.value = '';
+      const tglLoad = newTx.map(t => t.tanggal).sort()[0];
+      goDate(tglLoad);
     } catch (err) {
-      alert('Error saat memproses file: ' + err.message);
-      msgEl.className = 'msg err';
-      msgEl.textContent = '❌ Error: ' + err.message;
+      console.error(err);
+      if (!$('excel_msg').classList.contains('err')) setImpMsg('Error: ' + friendlyError(err), 'err');
+    } finally {
+      btn.disabled = !fileInput.files.length;
     }
   };
   reader.readAsArrayBuffer(file);
 });
 
 // ============================================================
+// MASTER HPP
+// ============================================================
+async function loadMaster() {
+  masterList = await fetchAll(
+    () => sb.from('masterhpp').select('*').order('produk').order('id'), 'Memuat Master HPP');
+  masterMap = {};
+  masterList.forEach(m => { masterMap[keyOf(m.produk, m.variasi, m.ukuran)] = m; });
+  renderMasterList();
+
+  const uniq = arr => [...new Set(arr.filter(Boolean))];
+  const defaultProduk = ['Blouse Polkadot Terbaru', 'Kemeja Polkadot'];
+  const opt = v => `<option value="${esc(v)}"></option>`;
+  $('dl_produk').innerHTML = uniq([...defaultProduk, ...masterList.map(m => m.produk)]).map(opt).join('');
+  $('dl_variasi').innerHTML = uniq(masterList.map(m => m.variasi)).map(opt).join('');
+  $('dl_ukuran').innerHTML = uniq(masterList.map(m => m.ukuran)).map(opt).join('');
+  if (openSheetEl && openSheetEl.id === 'sheetTx') renderQuickPicks();
+}
+
+function renderMasterList() {
+  const el = $('mList');
+  if (!masterList.length) {
+    el.innerHTML = `<div class="empty">${ICON.tag}
+      <h3>Belum ada Master HPP</h3>
+      <p>Isi HPP per produk agar untung dihitung otomatis.</p>
+      <div class="btn-row"><button class="btn primary" type="button" data-act="addMaster">Tambah HPP</button></div></div>`;
+    return;
+  }
+  const q = masterQuery.trim().toLowerCase();
+  const rows = masterList.filter(m => !q || [m.produk, m.variasi, m.ukuran].join(' ').toLowerCase().includes(q));
+  if (!rows.length) { el.innerHTML = `<div class="empty"><h3>Tidak ada yang cocok</h3><p>Coba kata kunci lain.</p></div>`; return; }
+  el.innerHTML = rows.map(m => {
+    const v = [m.variasi, m.ukuran].filter(Boolean).join(', ');
+    return `<button type="button" class="row" data-id="${esc(m.id)}">
+      <span class="row-main">
+        <span class="row-title">${esc(m.produk)}</span>
+        <span class="row-sub${v ? '' : ' muted'}">${v ? esc(v) : 'Semua variasi dan ukuran'}</span>
+      </span>
+      <span class="row-amt"><b>${rupiah(m.hpp)}</b><small>per unit</small></span>
+    </button>`;
+  }).join('');
+}
+$('mSearch').addEventListener('input', e => { masterQuery = e.target.value; renderMasterList(); });
+$('mList').addEventListener('click', e => {
+  const b = e.target.closest('.row[data-id]');
+  if (!b) return;
+  const m = masterList.find(x => String(x.id) === b.dataset.id);
+  if (m) openMasterSheet(m);
+});
+
+function openMasterSheet(m = null) {
+  masterEditingId = m ? m.id : null;
+  $('sheetMTitle').textContent = m ? 'Edit HPP' : 'Tambah HPP';
+  $('btnMDelete').hidden = !m;
+  $('m_produk').value = m ? (m.produk || '') : '';
+  $('m_variasi').value = m ? (m.variasi || '') : '';
+  $('m_ukuran').value = m ? (m.ukuran || '') : '';
+  setMoney('m_hpp', m ? m.hpp : '');
+  $('m_produk').removeAttribute('aria-invalid');
+  openSheet('sheetM');
+}
+
+let mSaving = false;
+$('sheetM').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (mSaving) return;
+  const produk = $('m_produk').value.trim();
+  const variasi = $('m_variasi').value.trim();
+  const ukuran = $('m_ukuran').value.trim();
+  const hpp = numOf('m_hpp');
+  if (!produk) {
+    $('m_produk').setAttribute('aria-invalid', 'true'); $('m_produk').focus();
+    toast('Isi nama produk dulu.', {kind: 'err'}); return;
+  }
+  mSaving = true; $('btnMSave').disabled = true;
+  try {
+    if (masterEditingId) {
+      must(await sb.from('masterhpp').update({produk, variasi, ukuran, hpp}).eq('id', masterEditingId), 'Simpan HPP');
+    } else {
+      await saveMasterHpp(produk, variasi, ukuran, hpp);
+    }
+    await loadMaster();
+    toast('HPP disimpan.');
+    closeSheet();
+  } catch (err) {
+    if (err.code === '23505') toast('Kombinasi produk, variasi, dan ukuran itu sudah ada. Ubah salah satunya.', {kind: 'err', ms: 5000});
+    else fail(err);
+  } finally {
+    mSaving = false; $('btnMSave').disabled = false;
+  }
+});
+
+$('btnMDelete').addEventListener('click', async () => {
+  if (!masterEditingId) return;
+  const m = masterList.find(x => x.id === masterEditingId);
+  const ok = await askConfirm({title: 'Hapus HPP ini?',
+    message: `${m ? m.produk : 'Data ini'} akan dihapus dari Master HPP. Transaksi yang sudah tercatat tidak berubah.`,
+    ok: 'Hapus HPP', danger: true});
+  if (!ok) return;
+  try {
+    must(await sb.from('masterhpp').delete().eq('id', masterEditingId), 'Hapus Master HPP');
+    await loadMaster();
+    toast('HPP dihapus.');
+    closeSheet();
+  } catch (e) { fail(e); }
+});
+
+// ============================================================
 // BIAYA IKLAN
-// FIX #8 — upsert tanpa unique constraint menyebabkan insert
-// ganda. Sekarang cek existing dulu lalu update atau insert.
+// Tabel biayaharian memakai `tanggal` sebagai primary key (tidak ada
+// kolom id), jadi cukup upsert dengan onConflict: 'tanggal'.
 // ============================================================
 async function loadAds() {
-  const {data, error} = await sb.from('biayaharian')
-    .select('*').order('tanggal', {ascending: false}).limit(14);
-  if (error) return;
-  const rows = data || [];
-  const tb   = document.querySelector('#tblA tbody');
-  tb.innerHTML = rows.length
-    ? rows.map(r => `<tr><td>${esc(r.tanggal)}</td><td>${rupiah(r.biaya_iklan)}</td></tr>`).join('')
-    : '<tr><td colspan="2" class="empty">Belum ada data</td></tr>';
+  const start = addDays(todayStr(), -13);
+  const res = await sb.from('biayaharian').select('tanggal, biaya_iklan')
+    .gte('tanggal', start).order('tanggal', {ascending: false});
+  const rows = must(res, 'Memuat biaya iklan') || [];
+  adsMap = {};
+  rows.forEach(r => { adsMap[r.tanggal] = Number(r.biaya_iklan) || 0; });
+  renderAds();
 }
 
-document.getElementById('btnSimpanA').addEventListener('click', async () => {
-  const tanggal    = document.getElementById('a_tgl').value;
-  const biaya_iklan = Number(document.getElementById('a_biaya').value) || 0;
-  if (!tanggal) { alert('Tanggal wajib diisi'); return; }
+function renderAds() {
+  const t = todayStr();
+  const days = Array.from({length: 14}, (_, i) => addDays(t, -i));
+  const vals = days.map(d => adsMap[d]);
+  const filled = vals.filter(v => v !== undefined);
+  const total = filled.reduce((s, v) => s + v, 0);
+  const missing = 14 - filled.length;
+  const max = Math.max(1, ...filled);
+  const sel = $('a_tgl').value;
 
-  // FIX: cek apakah row untuk tanggal ini sudah ada
-  const {data: existing, error: errCheck} = await sb.from('biayaharian')
-    .select('id').eq('tanggal', tanggal).maybeSingle();
-  if (errCheck) { alert('Gagal cek data: ' + errCheck.message); return; }
+  $('adSummary').innerHTML = `<div class="sumline">
+    <span>Total 14 hari terakhir <b>${rupiah(total)}</b></span>
+    ${missing ? `<span class="tag warn">${missing} hari belum diisi</span>` : '<span class="tag" style="background:var(--pos-bg);color:var(--pos)">Semua hari terisi</span>'}
+  </div>`;
 
-  let error;
-  if (existing) {
-    ({error} = await sb.from('biayaharian').update({biaya_iklan}).eq('id', existing.id));
-  } else {
-    ({error} = await sb.from('biayaharian').insert({tanggal, biaya_iklan}));
-  }
-  if (error) { alert('Gagal simpan: ' + error.message); return; }
-
-  flashMsg('a_msg', 'Tersimpan ✓', 'ok');
-  await loadAds();
-  if (tanggal === document.getElementById('selDate').value) await loadDay(tanggal);
-});
-
-// ============================================================
-// EXPORT CSV
-// ============================================================
-document.getElementById('btnExport').addEventListener('click', async () => {
-  setStatus('Mengambil data untuk export…');
-  const {data, error} = await sb.from('transaksi').select('*').order('tanggal').limit(10000);
-  if (error) { alert('Gagal export: ' + error.message); setStatus(''); return; }
-  const rows = data || [];
-  if (!rows.length) { alert('Tidak ada data untuk diekspor.'); setStatus(''); return; }
-
-  const headers = [
-    'Tanggal','No. Pesanan','Produk','Variasi','Ukuran','Qty',
-    'Harga Satuan','Total Penjualan','Status',
-    'HPP Satuan','Total HPP','Biaya Admin Shopee','Profit Transaksi'
-  ];
-  const csvRows = [headers.join(';')];
-
-  rows.forEach(r => {
-    const total    = (r.qty || 0) * (r.harga || 0);
-    const hppTotal = (r.qty || 0) * (r.hpp_satuan || 0);
-    const profit   = r.status === 'Selesai' ? (total - hppTotal - (r.biaya_admin || 0)) : 0;
-    csvRows.push([
-      r.tanggal, r.no_pesanan, r.produk, r.variasi, r.ukuran, r.qty,
-      r.harga, total, r.status, r.hpp_satuan, hppTotal, r.biaya_admin, profit
-    ].map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(';'));
-  });
-
-  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], {type: 'text/csv;charset=utf-8;'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `penjualan-shopee-${todayStr()}.csv`;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
-
-  setStatus(`Export selesai (${rows.length} baris) ✓`, 'ok');
-  setTimeout(() => setStatus(''), 3000);
-});
-
-// ============================================================
-// GRAFIK
-// FIX #9 — auto-load saat tab dibuka tidak memunculkan alert;
-// hanya button yang memberi peringatan jika tanggal kosong.
-// ============================================================
-document.getElementById('btnLoadGrafik').addEventListener('click', () => {
-  const s = document.getElementById('g_start').value;
-  const e = document.getElementById('g_end').value;
-  if (!s || !e) { alert('Pilih rentang tanggal terlebih dahulu'); return; }
-  loadChartData();
-});
-
-async function loadChartData() {
-  const start = document.getElementById('g_start').value;
-  const end   = document.getElementById('g_end').value;
-  // Jika tanggal belum diisi (misal auto-load sebelum init selesai), diam saja
-  if (!start || !end) return;
-
-  setStatus('Memuat data grafik…');
-
-  const {data, error} = await sb.from('transaksi')
-    .select('tanggal, qty, harga, status')
-    .gte('tanggal', start).lte('tanggal', end)
-    .order('tanggal', {ascending: true});
-
-  if (error) { alert('Gagal memuat grafik: ' + error.message); setStatus(''); return; }
-
-  // Buat kerangka tanggal agar hari tanpa transaksi tetap muncul di grafik
-  const grouped = {};
-  const curr    = new Date(start + 'T00:00:00');
-  const endObj  = new Date(end   + 'T00:00:00');
-  while (curr <= endObj) {
-    grouped[localDateStr(curr)] = {qty: 0, omset: 0};
-    curr.setDate(curr.getDate() + 1);
-  }
-
-  (data || []).forEach(r => {
-    if (!grouped[r.tanggal]) return;
-    grouped[r.tanggal].qty += (r.qty || 1);
-    if (r.status === 'Selesai') grouped[r.tanggal].omset += (r.qty || 0) * (r.harga || 0);
-  });
-
-  const labels   = Object.keys(grouped);
-  const dataQty  = labels.map(l => grouped[l].qty);
-  const dataOmset= labels.map(l => grouped[l].omset);
-  renderChart(labels, dataQty, dataOmset);
-  setStatus('');
+  $('adList').innerHTML = days.map((d, i) => {
+    const v = vals[i];
+    const none = v === undefined;
+    const rel = relDay(d);
+    return `<button type="button" class="arow" data-d="${d}" ${d === sel ? 'aria-current="true"' : ''}>
+      <span class="ad-date">${esc(rel || fmtDayShort(d))}</span>
+      <span class="ad-bar"><i style="width:${none ? 0 : Math.max(2, v / max * 100)}%"></i></span>
+      <span class="ad-val${none ? ' muted' : ''}">${none ? 'Belum diisi' : rupiah(v)}</span>
+    </button>`;
+  }).join('');
 }
-
-function renderChart(labels, dataQty, dataOmset) {
-  const ctx = document.getElementById('orderChart').getContext('2d');
-  if (orderChartInst) orderChartInst.destroy();
-
-  orderChartInst = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Produk Terjual (Qty)',
-          data: dataQty,
-          borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)',
-          yAxisID: 'y1', tension: 0.3, fill: true, pointRadius: 3
-        },
-        {
-          label: 'Omset Selesai (Rp)',
-          data: dataOmset,
-          borderColor: '#1F3864', backgroundColor: 'rgba(31,56,100,0.1)',
-          yAxisID: 'y2', tension: 0.3, fill: true, pointRadius: 3
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: {mode: 'index', intersect: false},
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label(ctx) {
-              if (ctx.dataset.yAxisID === 'y2') {
-                return ctx.dataset.label + ': ' + rupiah(ctx.parsed.y);
-              }
-              return ctx.dataset.label + ': ' + ctx.parsed.y + ' pcs';
-            }
-          }
-        }
-      },
-      scales: {
-        x: {display: true, title: {display: true, text: 'Tanggal'}},
-        y1: {
-          type: 'linear', display: true, position: 'left',
-          title: {display: true, text: 'Qty'},
-          beginAtZero: true, ticks: {stepSize: 1, precision: 0}
-        },
-        y2: {
-          type: 'linear', display: true, position: 'right',
-          title: {display: true, text: 'Omset (Rp)'},
-          grid: {drawOnChartArea: false}, beginAtZero: true,
-          ticks: {callback: v => new Intl.NumberFormat('id-ID', {notation: 'compact'}).format(v)}
-        }
-      }
-    }
-  });
+$('adList').addEventListener('click', e => {
+  const b = e.target.closest('.arow');
+  if (!b) return;
+  $('a_tgl').value = b.dataset.d;
+  fillAdAmount();
+  $('a_biaya').focus();
+  $('a_biaya').select && $('a_biaya').select();
+  renderAds();
+});
+function fillAdAmount() {
+  const v = adsMap[$('a_tgl').value];
+  setMoney('a_biaya', v === undefined ? '' : v);
 }
+$('a_tgl').addEventListener('change', () => { fillAdAmount(); renderAds(); });
+
+let adSaving = false;
+$('adForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (adSaving) return;
+  const tanggal = $('a_tgl').value;
+  const biaya_iklan = numOf('a_biaya');
+  if (!tanggal) { toast('Pilih tanggal dulu.', {kind: 'err'}); return; }
+  adSaving = true; $('btnSimpanA').disabled = true;
+  try {
+    must(await sb.from('biayaharian').upsert(
+      {tanggal, biaya_iklan, updated_at: new Date().toISOString()},
+      {onConflict: 'tanggal'}
+    ), 'Simpan biaya iklan');
+    markDirty();
+    toast('Biaya iklan disimpan.');
+    await loadAds();
+    if (tanggal === $('selDate').value) await loadDay(tanggal, true);
+  } catch (err) { fail(err); }
+  finally { adSaving = false; $('btnSimpanA').disabled = false; }
+});
 
 // ============================================================
 // DASBOR
 // ============================================================
-
-// Tombol cepat pilih rentang tanggal
-function setDashRange(start, end) {
-  document.getElementById('d_start').value = start;
-  document.getElementById('d_end').value   = end;
-  document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
+function presetRange(p) {
+  const t = todayStr(), d = new Date();
+  if (p === 'today') return [t, t];
+  if (p === '7d') return [addDays(t, -6), t];
+  if (p === 'month') return [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, t];
+  if (p === 'year') return [`${d.getFullYear()}-01-01`, t];
+  return null;
 }
+function markPresetChips() {
+  qsa('#periodChips .chip').forEach(b => {
+    const on = b.dataset.p === dash.preset;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  $('customRange').hidden = dash.preset !== 'custom';
+}
+async function earliestDate() {
+  const r = await sb.from('transaksi').select('tanggal').order('tanggal', {ascending: true}).limit(1);
+  const d = must(r, 'Memuat tanggal awal');
+  return (d && d[0] && d[0].tanggal) || todayStr();
+}
+async function setPreset(p) {
+  dash.preset = p;
+  markPresetChips();
+  try {
+    if (p === 'all') { $('d_start').value = await earliestDate(); $('d_end').value = todayStr(); }
+    else if (p !== 'custom') { const [s, e] = presetRange(p); $('d_start').value = s; $('d_end').value = e; }
+    await loadDashboard();
+  } catch (e) { fail(e); }
+}
+$('periodChips').addEventListener('click', e => {
+  const b = e.target.closest('.chip');
+  if (b) setPreset(b.dataset.p);
+});
+['d_start', 'd_end'].forEach(id => $(id).addEventListener('change', () => {
+  if (dash.preset !== 'custom') { dash.preset = 'custom'; markPresetChips(); }
+  loadDashboard();
+}));
 
-document.getElementById('d_today').addEventListener('click', () => {
-  const t = todayStr();
-  setDashRange(t, t);
-  document.getElementById('d_today').classList.add('active');
-  loadDashboard();
-});
-document.getElementById('d_7days').addEventListener('click', () => {
-  const e = new Date(), s = new Date();
-  s.setDate(s.getDate() - 6);
-  setDashRange(localDateStr(s), localDateStr(e));
-  document.getElementById('d_7days').classList.add('active');
-  loadDashboard();
-});
-document.getElementById('d_month').addEventListener('click', () => {
-  const d = new Date();
-  const s = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
-  setDashRange(s, localDateStr(d));
-  document.getElementById('d_month').classList.add('active');
-  loadDashboard();
-});
-document.getElementById('d_year').addEventListener('click', () => {
-  const d = new Date();
-  setDashRange(d.getFullYear() + '-01-01', localDateStr(d));
-  document.getElementById('d_year').classList.add('active');
-  loadDashboard();
-});
-document.getElementById('d_all').addEventListener('click', () => {
-  setDashRange('2020-01-01', localDateStr(new Date()));
-  document.getElementById('d_all').classList.add('active');
-  loadDashboard();
-});
-document.getElementById('btnLoadDashboard').addEventListener('click', () => {
-  const s = document.getElementById('d_start').value;
-  const e = document.getElementById('d_end').value;
-  if (!s || !e) { alert('Pilih rentang tanggal terlebih dahulu'); return; }
-  loadDashboard();
-});
+function buildSeries(tx, ads, start, end) {
+  const days = diffDays(start, end) + 1;
+  const monthly = days > 62;
+  const keyFor = d => monthly ? d.slice(0, 7) : d;
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const buckets = new Map();
+  if (!monthly) {
+    for (let i = 0; i < days; i++) buckets.set(addDays(start, i), {qty: 0, omset: 0, profit: 0});
+  } else {
+    let y = +start.slice(0, 4), m = +start.slice(5, 7);
+    const ey = +end.slice(0, 4), em = +end.slice(5, 7);
+    while (y < ey || (y === ey && m <= em)) {
+      buckets.set(`${y}-${String(m).padStart(2, '0')}`, {qty: 0, omset: 0, profit: 0});
+      m++; if (m > 12) { m = 1; y++; }
+    }
+  }
+  tx.forEach(r => {
+    if (r.status !== 'Selesai') return;
+    const b = buckets.get(keyFor(r.tanggal));
+    if (!b) return;
+    b.qty += r.qty;
+    b.omset += r.qty * r.harga;
+    b.profit += r.qty * r.harga - r.qty * r.hpp_satuan - r.biaya_admin;
+  });
+  ads.forEach(a => {
+    const b = buckets.get(keyFor(a.tanggal));
+    if (b) b.profit -= Number(a.biaya_iklan) || 0;
+  });
+  const keys = [...buckets.keys()];
+  const s = keys.map(k => buckets.get(k));
+  s.labels = keys.map(k => monthly
+    ? `${MONTHS[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}`
+    : parseLocal(k).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'}));
+  s.monthly = monthly;
+  return s;
+}
 
 async function loadDashboard() {
-  const start  = document.getElementById('d_start').value;
-  const end    = document.getElementById('d_end').value;
-  if (!start || !end) return;
-
-  const statsEl = document.getElementById('dashboardStats');
-  statsEl.innerHTML = '<div class="loading" style="padding:20px 0; text-align:center;">Memuat data…</div>';
-
-  // Query transaksi dalam rentang
-  const {data: txData, error: txErr} = await sb.from('transaksi')
-    .select('qty, harga, hpp_satuan, biaya_admin, status, produk')
-    .gte('tanggal', start)
-    .lte('tanggal', end);
-  if (txErr) {
-    statsEl.innerHTML = `<p class="msg err">Gagal memuat: ${txErr.message}</p>`; return;
+  if (dash.preset !== 'custom' && dash.preset !== 'all') {
+    const [s, e] = presetRange(dash.preset);
+    $('d_start').value = s; $('d_end').value = e;
+  } else if (dash.preset === 'all') {
+    $('d_end').value = todayStr();
   }
+  const start = $('d_start').value, end = $('d_end').value;
+  if (!start || !end) return;
+  if (start > end) { toast('Tanggal awal harus sebelum tanggal akhir.', {kind: 'err'}); return; }
 
-  // Query biaya iklan dalam rentang
-  const {data: adsData} = await sb.from('biayaharian')
-    .select('biaya_iklan')
-    .gte('tanggal', start)
-    .lte('tanggal', end);
+  const token = ++dash.req;
+  const body = $('dashBody');
+  body.innerHTML = notaSkeleton() + `<div class="ledger">${skelRows(3)}</div>`;
 
-  // ---- Hitung total ----
-  const selesai = (txData || []).filter(r => r.status === 'Selesai');
-  const returRows= (txData || []).filter(r => r.status === 'Retur');
-  const dibatalRow=(txData || []).filter(r => r.status === 'Dibatalkan');
+  let txData, adsData;
+  try {
+    [txData, adsData] = await Promise.all([
+      fetchAll(() => sb.from('transaksi')
+        .select('id, tanggal, no_pesanan, qty, harga, hpp_satuan, biaya_admin, status, produk')
+        .gte('tanggal', start).lte('tanggal', end).order('id'), 'Memuat dasbor'),
+      fetchAll(() => sb.from('biayaharian').select('tanggal, biaya_iklan')
+        .gte('tanggal', start).lte('tanggal', end).order('tanggal'), 'Memuat biaya iklan')
+    ]);
+  } catch (e) {
+    if (token !== dash.req) return;
+    console.error(e);
+    body.innerHTML = `<div class="ledger"><div class="empty">${ICON.warn}
+      <h3>Dasbor belum bisa dimuat</h3><p>${esc(friendlyError(e))}</p>
+      <div class="btn-row"><button class="btn primary" type="button" id="btnDashRetry">Coba lagi</button></div></div></div>`;
+    const rb = $('btnDashRetry'); if (rb) rb.onclick = () => loadDashboard();
+    return;
+  }
+  if (token !== dash.req) return;
+  txData = txData.map(normTx);
 
-  const totalItem   = selesai.reduce((s, r) => s + (r.qty || 0), 0);
-  const totalOmset  = selesai.reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
-  const totalHpp    = selesai.reduce((s, r) => s + (r.qty || 0) * (r.hpp_satuan || 0), 0);
-  const totalAdmin  = selesai.reduce((s, r) => s + (r.biaya_admin || 0), 0);
-  const totalIklan  = (adsData || []).reduce((s, r) => s + (r.biaya_iklan || 0), 0);
-  const nilaiRetur  = returRows.reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
-  const profit      = totalOmset - totalHpp - totalAdmin - totalIklan;
-  const margin      = totalOmset > 0 ? (profit / totalOmset * 100).toFixed(1) : '0.0';
-  const totalTx     = selesai.length;
-  const noHppCount  = selesai.filter(r => !r.hpp_satuan || r.hpp_satuan === 0).length;
+  const iklan = sum(adsData, r => Number(r.biaya_iklan) || 0);
+  const t = calcTotals(txData, iklan);
+  const series = buildSeries(txData, adsData, start, end);
 
-  // ---- Top produk ----
   const prodMap = {};
-  selesai.forEach(r => {
+  t.sel.forEach(r => {
     const k = (r.produk || '—').trim();
     if (!prodMap[k]) prodMap[k] = {produk: k, qty: 0, omset: 0, hpp: 0};
-    prodMap[k].qty   += (r.qty || 0);
-    prodMap[k].omset += (r.qty || 0) * (r.harga || 0);
-    prodMap[k].hpp   += (r.qty || 0) * (r.hpp_satuan || 0);
+    prodMap[k].qty += r.qty; prodMap[k].omset += r.qty * r.harga; prodMap[k].hpp += r.qty * r.hpp_satuan;
   });
-  const topProds = Object.values(prodMap)
-    .sort((a, b) => b.omset - a.omset)
-    .slice(0, 10);
+  const tops = Object.values(prodMap).sort((a, b) => b.omset - a.omset).slice(0, 10);
 
-  // ---- Render ----
-  const profitClass = profit < 0 ? 'ds-danger' : 'ds-success';
-  const marginClass = Number(margin) < 0 ? 'ds-danger' : (Number(margin) < 10 ? 'ds-warn' : 'ds-success');
-
-  const warnHpp = noHppCount > 0
-    ? `<div style="background:var(--warn-bg); color:var(--warn-text); border-radius:8px;
-        padding:8px 12px; font-size:12px; margin-bottom:14px;">
-        ⚠️ <b>${noHppCount}</b> transaksi belum ada HPP — profit bersih mungkin tidak akurat.
-        Perbarui di tab <b>Master HPP</b> lalu klik <b>🔄 Hitung Ulang HPP</b>.
-       </div>` : '';
-
-  statsEl.innerHTML = `
-    ${warnHpp}
-
-    <!-- KPI Utama -->
-    <div class="dash-section-title">Ringkasan Utama</div>
-    <div class="dash-grid">
-      <div class="dash-stat">
-        <span class="ds-icon">💰</span>
-        <span class="ds-lbl">Total Omset (Selesai)</span>
-        <span class="ds-val">${rupiah(totalOmset)}</span>
-      </div>
-      <div class="dash-stat">
-        <span class="ds-icon">📦</span>
-        <span class="ds-lbl">Total Produk Terjual</span>
-        <span class="ds-val">${totalItem.toLocaleString('id-ID')} pcs</span>
-      </div>
-      <div class="dash-stat ds-primary">
-        <span class="ds-icon">✅</span>
-        <span class="ds-lbl">Profit Bersih</span>
-        <span class="ds-val">${rupiah(profit)}</span>
-      </div>
-    </div>
-
-    <!-- Rincian Biaya -->
-    <div class="dash-section-title">Rincian Biaya</div>
-    <div class="dash-grid">
-      <div class="dash-stat">
-        <span class="ds-icon">🏭</span>
-        <span class="ds-lbl">Total HPP</span>
-        <span class="ds-val ds-warn">${rupiah(totalHpp)}</span>
-      </div>
-      <div class="dash-stat">
-        <span class="ds-icon">💳</span>
-        <span class="ds-lbl">Total Biaya Admin Shopee</span>
-        <span class="ds-val">${rupiah(totalAdmin)}</span>
-      </div>
-      <div class="dash-stat">
-        <span class="ds-icon">📣</span>
-        <span class="ds-lbl">Total Biaya Iklan</span>
-        <span class="ds-val">${rupiah(totalIklan)}</span>
-      </div>
-    </div>
-
-    <!-- Statistik Tambahan -->
-    <div class="dash-section-title">Statistik Tambahan</div>
-    <div class="dash-grid">
-      <div class="dash-stat ${marginClass}">
-        <span class="ds-icon">📊</span>
-        <span class="ds-lbl">Margin Keuntungan</span>
-        <span class="ds-val">${margin}%</span>
-      </div>
-      <div class="dash-stat ${nilaiRetur > 0 ? 'ds-danger' : ''}">
-        <span class="ds-icon">🔁</span>
-        <span class="ds-lbl">Nilai Retur</span>
-        <span class="ds-val">${rupiah(nilaiRetur)}</span>
-      </div>
-      <div class="dash-stat">
-        <span class="ds-icon">🧾</span>
-        <span class="ds-lbl">Jumlah Order Selesai</span>
-        <span class="ds-val">${totalTx.toLocaleString('id-ID')}</span>
-      </div>
-    </div>
-
-    <!-- Top Produk -->
-    ${topProds.length ? `
-    <div class="dash-section-title">Top ${topProds.length} Produk Terlaris</div>
-    <div class="card" style="padding:0; overflow:hidden;">
-      <div class="tablewrap" style="margin-top:0;">
-        <table class="top-produk-table">
-          <thead>
-            <tr>
-              <th>#</th><th>Produk</th><th>Qty</th>
-              <th>Omset</th><th>Total HPP</th><th>Profit Produk</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${topProds.map((p, i) => {
-              const pp = p.omset - p.hpp;
-              return `<tr>
-                <td>${i + 1}</td>
-                <td title="${esc(p.produk)}">${esc(p.produk)}</td>
-                <td>${p.qty}</td>
-                <td>${rupiah(p.omset)}</td>
-                <td>${rupiah(p.hpp)}</td>
-                <td style="color:${pp < 0 ? 'var(--danger)' : 'var(--success)'}">${rupiah(pp)}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="2" style="text-align:right; font-size:11px; color:var(--muted);">TOTAL</td>
-              <td>${totalItem}</td>
-              <td>${rupiah(totalOmset)}</td>
-              <td>${rupiah(totalHpp)}</td>
-              <td style="color:${(totalOmset-totalHpp) < 0 ? 'var(--danger)' : 'var(--success)'}">
-                ${rupiah(totalOmset - totalHpp)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>` : ''}
-  `;
+  dash.series = series;
+  dash.dirty = false;
+  renderDash({t, tops, start, end});
+  drawChart();
 }
 
+function renderDash({t, tops, start, end}) {
+  const body = $('dashBody');
+  let html = '';
+
+  if (t.noHpp > 0) {
+    html += `<div class="callout"><b>${t.noHpp} transaksi belum punya HPP,</b> jadi untung bersih terlihat lebih besar dari sebenarnya.
+      <button class="linklike" type="button" data-act="recalcPeriod">Hitung ulang HPP periode ini</button>
+      atau <button class="linklike" type="button" data-act="goMaster">isi Master HPP</button>.</div>`;
+  }
+
+  html += notaHtml({title: 'Rekap periode', sub: fmtRange(start, end), t});
+
+  if (t.omset > 0) {
+    const costs = t.hpp + t.admin + t.iklan;
+    const loss = t.profit < 0;
+    const base = loss ? costs : t.omset;
+    const seg = [
+      ['HPP', t.hpp, 'var(--c-hpp)'],
+      ['Biaya admin', t.admin, 'var(--c-admin)'],
+      ['Biaya iklan', t.iklan, 'var(--c-iklan)']
+    ];
+    if (!loss) seg.push(['Untung bersih', t.profit, 'var(--c-untung)']);
+    const label = seg.map(([n, v]) => `${n} ${pct(v / base * 100)} persen`).join(', ');
+    html += `<section class="block" aria-label="Pembagian omset">
+      <h3>Ke mana omset pergi</h3>
+      <div class="split" role="img" aria-label="${esc(label)}">
+        ${seg.map(([n, v, c]) => `<span style="--w:${(v / base * 100).toFixed(2)}%;--c:${c}"></span>`).join('')}
+      </div>
+      <ul class="legend plain">
+        ${seg.map(([n, v, c]) => `<li><i style="--c:${c}"></i><span>${n}</span><span class="pc">${pct(v / base * 100)}%</span><span class="am">${rupiah(v)}</span></li>`).join('')}
+      </ul>
+      ${loss ? `<p class="hint warn" style="margin-top:10px">Biaya melebihi omset sebesar ${rupiah(-t.profit)}.</p>` : ''}
+    </section>`;
+  }
+
+  html += `<section class="block" aria-label="Tren penjualan">
+    <h3>Tren${dash.series && dash.series.monthly ? ' per bulan' : ' harian'}</h3>
+    <div class="chartbox">
+      <div class="seg" id="chartMode" role="radiogroup" aria-label="Tampilkan grafik">
+        <button type="button" role="radio" data-m="omset" aria-checked="${dash.mode === 'omset'}">Omset</button>
+        <button type="button" role="radio" data-m="profit" aria-checked="${dash.mode === 'profit'}">Untung</button>
+        <button type="button" role="radio" data-m="qty" aria-checked="${dash.mode === 'qty'}">Terjual</button>
+      </div>
+      <div class="chartwrap" id="chartBox">${t.omset > 0 || t.qty > 0
+        ? '<canvas id="orderChart" role="img" aria-label="Grafik tren penjualan"></canvas>'
+        : '<p class="hint" style="padding:70px 10px;text-align:center">Belum ada penjualan selesai di periode ini.</p>'}</div>
+    </div>
+  </section>`;
+
+  if (tops.length) {
+    const maxO = Math.max(1, tops[0].omset);
+    html += `<section class="block" aria-label="Produk terlaris">
+      <h3>Produk terlaris</h3>
+      <ol class="ledger plain">
+        ${tops.map((p, i) => {
+          const gk = p.omset - p.hpp;
+          return `<li class="prod">
+            <span class="rank">${i + 1}</span>
+            <div>
+              <div class="prod-name">${esc(p.produk)}</div>
+              <div class="prod-bar"><i style="width:${Math.max(3, p.omset / maxO * 100).toFixed(1)}%"></i></div>
+              <div class="prod-meta"><span>${p.qty} pcs</span><span>Omset ${rupiah(p.omset)}</span><span class="${gk < 0 ? 'neg' : 'pos'}">Laba kotor ${rupiah(gk)}</span></div>
+            </div></li>`;
+        }).join('')}
+      </ol>
+    </section>`;
+  }
+  body.innerHTML = html;
+}
+
+$('dashBody').addEventListener('click', e => {
+  const b = e.target.closest('#chartMode button');
+  if (!b) return;
+  dash.mode = b.dataset.m;
+  qsa('#chartMode button').forEach(x => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+  drawChart();
+});
+
+function drawChart() {
+  const cv = $('orderChart');
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+  if (!cv || !dash.series) return;
+  if (typeof Chart === 'undefined') {
+    $('chartBox').innerHTML = '<p class="hint" style="padding:70px 10px;text-align:center">Grafik belum bisa dimuat. Periksa internet, lalu muat ulang halaman.</p>';
+    return;
+  }
+  const s = dash.series, mode = dash.mode;
+  const base = {omset: cssVar('--chart-a'), profit: cssVar('--chart-b'), qty: cssVar('--chart-c')}[mode];
+  const neg = cssVar('--neg');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  chartInst = new Chart(cv.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: s.labels,
+      datasets: [{
+        label: {omset: 'Omset', profit: 'Untung', qty: 'Terjual'}[mode],
+        data: s.map(x => x[mode]),
+        backgroundColor: c => (mode === 'profit' && c.raw < 0) ? neg : base,
+        borderRadius: 4, maxBarThickness: 26
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: {duration: reduce ? 0 : 300},
+      plugins: {
+        legend: {display: false},
+        tooltip: {callbacks: {label: c => mode === 'qty' ? `${c.parsed.y} pcs` : rupiah(c.parsed.y)}}
+      },
+      scales: {
+        x: {grid: {display: false}, ticks: {maxTicksLimit: 7, autoSkip: true, maxRotation: 0, color: cssVar('--ink-3')}},
+        y: {beginAtZero: true, grid: {color: cssVar('--line')},
+            ticks: {color: cssVar('--ink-3'), precision: 0, callback: v => mode === 'qty' ? v : compact(v)}}
+      }
+    }
+  });
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (currentTab === 'd' && dash.series) drawChart();
+});
+
 // ============================================================
-// INIT
+// MUAT ULANG & INIT
 // ============================================================
-async function init() {
-  const today = todayStr();
-  document.getElementById('selDate').value = today;
-  document.getElementById('a_tgl').value   = today;
-
-  const d = new Date();
-  document.getElementById('g_end').value   = localDateStr(d);
-  d.setDate(d.getDate() - 14);
-  document.getElementById('g_start').value = localDateStr(d);
-
-  // Dashboard default: bulan berjalan
-  const dm = new Date();
-  document.getElementById('d_end').value   = localDateStr(dm);
-  document.getElementById('d_start').value =
-    dm.getFullYear() + '-' + String(dm.getMonth() + 1).padStart(2, '0') + '-01';
-
-  setStatus('Menghubungkan ke database…');
+async function refreshAll() {
+  const btn = $('btnRefresh');
+  btn.classList.add('spin');
+  setConn('load', 'Memuat…');
   try {
-    await loadMaster();
-    await loadDay(today);
-    await loadAds();
-    setStatus('Terhubung ke Supabase ✓', 'ok');
-    setTimeout(() => setStatus(''), 3000);
+    await Promise.all([loadMaster(), loadDay($('selDate').value, !!dayRows.length), loadAds()]);
+    markDirty();
+    if (currentTab === 'd') await loadDashboard();
+    setConn('ok', 'Tersambung');
   } catch (e) {
-    setStatus('Gagal terhubung: ' + e.message, 'err');
+    setConn('err', 'Gagal terhubung');
+    fail(e);
+    if (!dayRows.length) showDayError();
+  } finally {
+    btn.classList.remove('spin');
   }
 }
+$('btnRefresh').addEventListener('click', refreshAll);
 
+async function init() {
+  const today = todayStr();
+  $('selDate').value = today;
+  $('a_tgl').value = today;
+  updateDaybar();
+  $('notaDay').innerHTML = notaSkeleton();
+  $('txList').innerHTML = skelRows(3);
+  $('mList').innerHTML = skelRows(3);
+  $('adList').innerHTML = skelRows(4);
+  const [s, e] = presetRange('month');
+  $('d_start').value = s; $('d_end').value = e;
+  markPresetChips();
+
+  if (!sb) {
+    setConn('err', 'Tidak terhubung');
+    showDayError();
+    return;
+  }
+  try {
+    // Semua error dilempar ke sini, jadi "Tersambung" hanya tampil jika benar-benar berhasil
+    await Promise.all([loadMaster(), loadDay(today), loadAds()]);
+    setConn('ok', 'Tersambung');
+  } catch (err) {
+    console.error(err);
+    setConn('err', 'Gagal terhubung');
+    toast(friendlyError(err), {kind: 'err', ms: 6000});
+    showDayError();
+    $('mList').innerHTML = ''; $('adList').innerHTML = '';
+  }
+}
 init();
 
 // ============================================================
@@ -1358,46 +2213,43 @@ init();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(r  => console.log('[SW] Registered:', r.scope))
+      .then(r => console.log('[SW] Registered:', r.scope))
       .catch(er => console.warn('[SW] Failed:', er));
   });
 }
 
 let deferredPrompt = null;
-const installBanner = document.getElementById('installBanner');
-
+const installBanner = $('installBanner');
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  if (!localStorage.getItem('pwa_dismissed')) installBanner.style.display = 'flex';
+  let dismissed = false;
+  try { dismissed = !!localStorage.getItem('pwa_dismissed'); } catch (_) {}
+  if (!dismissed) installBanner.hidden = false;
 });
-
-document.getElementById('btnInstall').addEventListener('click', async () => {
+$('btnInstall').addEventListener('click', async () => {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
   const {outcome} = await deferredPrompt.userChoice;
   deferredPrompt = null;
-  installBanner.style.display = 'none';
-  if (outcome === 'accepted') setStatus('Aplikasi berhasil dipasang ✓', 'ok');
+  installBanner.hidden = true;
+  if (outcome === 'accepted') toast('Aplikasi terpasang di layar utama.');
 });
-
-document.getElementById('btnDismissInstall').addEventListener('click', () => {
-  installBanner.style.display = 'none';
-  localStorage.setItem('pwa_dismissed', '1');
+$('btnDismissInstall').addEventListener('click', () => {
+  installBanner.hidden = true;
+  try { localStorage.setItem('pwa_dismissed', '1'); } catch (_) {}
 });
-
 window.addEventListener('appinstalled', () => {
-  installBanner.style.display = 'none';
-  deferredPrompt = null;
-  setStatus('Aplikasi sudah terpasang ✓', 'ok');
-  setTimeout(() => setStatus(''), 3000);
+  installBanner.hidden = true; deferredPrompt = null;
+  toast('Aplikasi terpasang di layar utama.');
 });
 
-const offlineBanner = document.getElementById('offlineBanner');
+const offlineBanner = $('offlineBanner');
 function updateOnlineStatus() {
-  offlineBanner.style.display = navigator.onLine ? 'none' : 'block';
+  offlineBanner.hidden = navigator.onLine;
+  if (!navigator.onLine) setConn('err', 'Offline');
 }
-window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('online', () => { updateOnlineStatus(); refreshAll(); });
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
 </script>
