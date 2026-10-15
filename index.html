@@ -100,6 +100,26 @@ tfoot tr td{font-weight:bold; background:var(--surface2); font-size:13px; color:
 #statusBar.ok{color:var(--success);}
 #statusBar.err{color:var(--danger);}
 .chart-container{position:relative; height:350px; width:100%; margin-top:20px;}
+
+/* ---- DASBOR ---- */
+.dash-section-title{font-size:12px; color:var(--muted); font-weight:bold; text-transform:uppercase;
+  letter-spacing:.05em; margin:14px 0 8px;}
+.dash-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:4px;}
+.dash-stat{background:var(--surface2); border:1px solid var(--border); border-radius:12px;
+  padding:14px 12px; display:flex; flex-direction:column; gap:4px;}
+.dash-stat .ds-icon{font-size:20px; line-height:1;}
+.dash-stat .ds-lbl{font-size:11px; color:var(--muted);}
+.dash-stat .ds-val{font-size:17px; font-weight:bold; color:var(--text); word-break:break-all;}
+.dash-stat.ds-primary{background:var(--accent); border-color:var(--accent);}
+.dash-stat.ds-primary .ds-lbl{color:rgba(255,255,255,.75);}
+.dash-stat.ds-primary .ds-val{color:#fff; font-size:20px;}
+.dash-stat.ds-success .ds-val,.ds-val.ds-success{color:var(--success);}
+.dash-stat.ds-danger  .ds-val,.ds-val.ds-danger {color:var(--danger);}
+.dash-stat.ds-warn    .ds-val,.ds-val.ds-warn   {color:var(--warn-text);}
+.qbtn{background:var(--surface2); color:var(--text); border:1px solid var(--border);
+  border-radius:7px; padding:6px 12px; font-size:12px; cursor:pointer; white-space:nowrap;}
+.qbtn:hover,.qbtn.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+.top-produk-table td:first-child{max-width:140px; overflow:hidden; text-overflow:ellipsis;}
 </style>
 </head>
 <body>
@@ -108,6 +128,7 @@ tfoot tr td{font-weight:bold; background:var(--surface2); font-size:13px; color:
   <p>Catat transaksi, HPP, dan biaya iklan secara cepat</p>
   <nav>
     <button data-tab="t" class="active">Transaksi</button>
+    <button data-tab="d">Dasbor</button>
     <button data-tab="m">Master HPP</button>
     <button data-tab="a">Biaya Iklan</button>
     <button data-tab="g">Grafik</button>
@@ -200,6 +221,30 @@ tfoot tr td{font-weight:bold; background:var(--surface2); font-size:13px; color:
       <div class="row-actions">
         <button class="btn secondary" id="btnExport">Unduh CSV Semua Transaksi</button>
       </div>
+    </div>
+  </section>
+
+  <!-- TAB DASBOR -->
+  <section id="tab-d" class="tab">
+    <div class="card">
+      <h2>Dasbor Performa</h2>
+      <div class="grid" style="margin-bottom:10px;">
+        <div><label>Dari Tanggal</label><input type="date" id="d_start"></div>
+        <div><label>Sampai Tanggal</label><input type="date" id="d_end"></div>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        <button class="qbtn" id="d_today">Hari Ini</button>
+        <button class="qbtn" id="d_7days">7 Hari</button>
+        <button class="qbtn" id="d_month">Bulan Ini</button>
+        <button class="qbtn" id="d_year">Tahun Ini</button>
+        <button class="qbtn" id="d_all">Semua Data</button>
+      </div>
+      <button class="btn" id="btnLoadDashboard">Tampilkan</button>
+      <span class="msg" id="d_msg" style="margin-left:8px;"></span>
+    </div>
+
+    <div id="dashboardStats">
+      <div class="loading" style="padding:20px 0; text-align:center;">Pilih rentang tanggal lalu klik Tampilkan.</div>
     </div>
   </section>
 
@@ -396,8 +441,9 @@ document.querySelectorAll('nav button').forEach(b => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('tab-' + b.dataset.tab).classList.add('active');
-    // Auto-load grafik saat tab dibuka (tanggal sudah diisi oleh init)
+    // Auto-load saat tab dibuka (tanggal sudah diisi oleh init)
     if (b.dataset.tab === 'g') loadChartData();
+    if (b.dataset.tab === 'd') loadDashboard();
   };
 });
 
@@ -1057,6 +1103,223 @@ function renderChart(labels, dataQty, dataOmset) {
 }
 
 // ============================================================
+// DASBOR
+// ============================================================
+
+// Tombol cepat pilih rentang tanggal
+function setDashRange(start, end) {
+  document.getElementById('d_start').value = start;
+  document.getElementById('d_end').value   = end;
+  document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
+}
+
+document.getElementById('d_today').addEventListener('click', () => {
+  const t = todayStr();
+  setDashRange(t, t);
+  document.getElementById('d_today').classList.add('active');
+  loadDashboard();
+});
+document.getElementById('d_7days').addEventListener('click', () => {
+  const e = new Date(), s = new Date();
+  s.setDate(s.getDate() - 6);
+  setDashRange(localDateStr(s), localDateStr(e));
+  document.getElementById('d_7days').classList.add('active');
+  loadDashboard();
+});
+document.getElementById('d_month').addEventListener('click', () => {
+  const d = new Date();
+  const s = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+  setDashRange(s, localDateStr(d));
+  document.getElementById('d_month').classList.add('active');
+  loadDashboard();
+});
+document.getElementById('d_year').addEventListener('click', () => {
+  const d = new Date();
+  setDashRange(d.getFullYear() + '-01-01', localDateStr(d));
+  document.getElementById('d_year').classList.add('active');
+  loadDashboard();
+});
+document.getElementById('d_all').addEventListener('click', () => {
+  setDashRange('2020-01-01', localDateStr(new Date()));
+  document.getElementById('d_all').classList.add('active');
+  loadDashboard();
+});
+document.getElementById('btnLoadDashboard').addEventListener('click', () => {
+  const s = document.getElementById('d_start').value;
+  const e = document.getElementById('d_end').value;
+  if (!s || !e) { alert('Pilih rentang tanggal terlebih dahulu'); return; }
+  loadDashboard();
+});
+
+async function loadDashboard() {
+  const start  = document.getElementById('d_start').value;
+  const end    = document.getElementById('d_end').value;
+  if (!start || !end) return;
+
+  const statsEl = document.getElementById('dashboardStats');
+  statsEl.innerHTML = '<div class="loading" style="padding:20px 0; text-align:center;">Memuat data…</div>';
+
+  // Query transaksi dalam rentang
+  const {data: txData, error: txErr} = await sb.from('transaksi')
+    .select('qty, harga, hpp_satuan, biaya_admin, status, produk')
+    .gte('tanggal', start)
+    .lte('tanggal', end);
+  if (txErr) {
+    statsEl.innerHTML = `<p class="msg err">Gagal memuat: ${txErr.message}</p>`; return;
+  }
+
+  // Query biaya iklan dalam rentang
+  const {data: adsData} = await sb.from('biayaharian')
+    .select('biaya_iklan')
+    .gte('tanggal', start)
+    .lte('tanggal', end);
+
+  // ---- Hitung total ----
+  const selesai = (txData || []).filter(r => r.status === 'Selesai');
+  const returRows= (txData || []).filter(r => r.status === 'Retur');
+  const dibatalRow=(txData || []).filter(r => r.status === 'Dibatalkan');
+
+  const totalItem   = selesai.reduce((s, r) => s + (r.qty || 0), 0);
+  const totalOmset  = selesai.reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
+  const totalHpp    = selesai.reduce((s, r) => s + (r.qty || 0) * (r.hpp_satuan || 0), 0);
+  const totalAdmin  = selesai.reduce((s, r) => s + (r.biaya_admin || 0), 0);
+  const totalIklan  = (adsData || []).reduce((s, r) => s + (r.biaya_iklan || 0), 0);
+  const nilaiRetur  = returRows.reduce((s, r) => s + (r.qty || 0) * (r.harga || 0), 0);
+  const profit      = totalOmset - totalHpp - totalAdmin - totalIklan;
+  const margin      = totalOmset > 0 ? (profit / totalOmset * 100).toFixed(1) : '0.0';
+  const totalTx     = selesai.length;
+  const noHppCount  = selesai.filter(r => !r.hpp_satuan || r.hpp_satuan === 0).length;
+
+  // ---- Top produk ----
+  const prodMap = {};
+  selesai.forEach(r => {
+    const k = (r.produk || '—').trim();
+    if (!prodMap[k]) prodMap[k] = {produk: k, qty: 0, omset: 0, hpp: 0};
+    prodMap[k].qty   += (r.qty || 0);
+    prodMap[k].omset += (r.qty || 0) * (r.harga || 0);
+    prodMap[k].hpp   += (r.qty || 0) * (r.hpp_satuan || 0);
+  });
+  const topProds = Object.values(prodMap)
+    .sort((a, b) => b.omset - a.omset)
+    .slice(0, 10);
+
+  // ---- Render ----
+  const profitClass = profit < 0 ? 'ds-danger' : 'ds-success';
+  const marginClass = Number(margin) < 0 ? 'ds-danger' : (Number(margin) < 10 ? 'ds-warn' : 'ds-success');
+
+  const warnHpp = noHppCount > 0
+    ? `<div style="background:var(--warn-bg); color:var(--warn-text); border-radius:8px;
+        padding:8px 12px; font-size:12px; margin-bottom:14px;">
+        ⚠️ <b>${noHppCount}</b> transaksi belum ada HPP — profit bersih mungkin tidak akurat.
+        Perbarui di tab <b>Master HPP</b> lalu klik <b>🔄 Hitung Ulang HPP</b>.
+       </div>` : '';
+
+  statsEl.innerHTML = `
+    ${warnHpp}
+
+    <!-- KPI Utama -->
+    <div class="dash-section-title">Ringkasan Utama</div>
+    <div class="dash-grid">
+      <div class="dash-stat">
+        <span class="ds-icon">💰</span>
+        <span class="ds-lbl">Total Omset (Selesai)</span>
+        <span class="ds-val">${rupiah(totalOmset)}</span>
+      </div>
+      <div class="dash-stat">
+        <span class="ds-icon">📦</span>
+        <span class="ds-lbl">Total Produk Terjual</span>
+        <span class="ds-val">${totalItem.toLocaleString('id-ID')} pcs</span>
+      </div>
+      <div class="dash-stat ds-primary">
+        <span class="ds-icon">✅</span>
+        <span class="ds-lbl">Profit Bersih</span>
+        <span class="ds-val">${rupiah(profit)}</span>
+      </div>
+    </div>
+
+    <!-- Rincian Biaya -->
+    <div class="dash-section-title">Rincian Biaya</div>
+    <div class="dash-grid">
+      <div class="dash-stat">
+        <span class="ds-icon">🏭</span>
+        <span class="ds-lbl">Total HPP</span>
+        <span class="ds-val ds-warn">${rupiah(totalHpp)}</span>
+      </div>
+      <div class="dash-stat">
+        <span class="ds-icon">💳</span>
+        <span class="ds-lbl">Total Biaya Admin Shopee</span>
+        <span class="ds-val">${rupiah(totalAdmin)}</span>
+      </div>
+      <div class="dash-stat">
+        <span class="ds-icon">📣</span>
+        <span class="ds-lbl">Total Biaya Iklan</span>
+        <span class="ds-val">${rupiah(totalIklan)}</span>
+      </div>
+    </div>
+
+    <!-- Statistik Tambahan -->
+    <div class="dash-section-title">Statistik Tambahan</div>
+    <div class="dash-grid">
+      <div class="dash-stat ${marginClass}">
+        <span class="ds-icon">📊</span>
+        <span class="ds-lbl">Margin Keuntungan</span>
+        <span class="ds-val">${margin}%</span>
+      </div>
+      <div class="dash-stat ${nilaiRetur > 0 ? 'ds-danger' : ''}">
+        <span class="ds-icon">🔁</span>
+        <span class="ds-lbl">Nilai Retur</span>
+        <span class="ds-val">${rupiah(nilaiRetur)}</span>
+      </div>
+      <div class="dash-stat">
+        <span class="ds-icon">🧾</span>
+        <span class="ds-lbl">Jumlah Order Selesai</span>
+        <span class="ds-val">${totalTx.toLocaleString('id-ID')}</span>
+      </div>
+    </div>
+
+    <!-- Top Produk -->
+    ${topProds.length ? `
+    <div class="dash-section-title">Top ${topProds.length} Produk Terlaris</div>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div class="tablewrap" style="margin-top:0;">
+        <table class="top-produk-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Produk</th><th>Qty</th>
+              <th>Omset</th><th>Total HPP</th><th>Profit Produk</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topProds.map((p, i) => {
+              const pp = p.omset - p.hpp;
+              return `<tr>
+                <td>${i + 1}</td>
+                <td title="${esc(p.produk)}">${esc(p.produk)}</td>
+                <td>${p.qty}</td>
+                <td>${rupiah(p.omset)}</td>
+                <td>${rupiah(p.hpp)}</td>
+                <td style="color:${pp < 0 ? 'var(--danger)' : 'var(--success)'}">${rupiah(pp)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right; font-size:11px; color:var(--muted);">TOTAL</td>
+              <td>${totalItem}</td>
+              <td>${rupiah(totalOmset)}</td>
+              <td>${rupiah(totalHpp)}</td>
+              <td style="color:${(totalOmset-totalHpp) < 0 ? 'var(--danger)' : 'var(--success)'}">
+                ${rupiah(totalOmset - totalHpp)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+// ============================================================
 // INIT
 // ============================================================
 async function init() {
@@ -1068,6 +1331,12 @@ async function init() {
   document.getElementById('g_end').value   = localDateStr(d);
   d.setDate(d.getDate() - 14);
   document.getElementById('g_start').value = localDateStr(d);
+
+  // Dashboard default: bulan berjalan
+  const dm = new Date();
+  document.getElementById('d_end').value   = localDateStr(dm);
+  document.getElementById('d_start').value =
+    dm.getFullYear() + '-' + String(dm.getMonth() + 1).padStart(2, '0') + '-01';
 
   setStatus('Menghubungkan ke database…');
   try {
