@@ -15,7 +15,10 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Library untuk Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Library untuk Grafik -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 :root{
@@ -94,6 +97,8 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
 #statusBar{font-size:11px; color:var(--muted); margin-top:4px;}
 #statusBar.ok{color:var(--success);}
 #statusBar.err{color:var(--danger);}
+/* Styling untuk area grafik agar responsif */
+.chart-container { position: relative; height: 350px; width: 100%; margin-top: 20px; }
 </style>
 </head>
 <body>
@@ -104,6 +109,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     <button data-tab="t" class="active">Transaksi</button>
     <button data-tab="m">Master HPP</button>
     <button data-tab="a">Biaya Iklan</button>
+    <button data-tab="g">Grafik</button>
   </nav>
 </header>
 <main>
@@ -117,6 +123,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     ⚠️ Tidak ada koneksi internet. Data baru tidak bisa disimpan sampai kembali online.
   </div>
 
+  <!-- TAB TRANSAKSI -->
   <section id="tab-t" class="tab active">
     <div class="card">
       <h2>Ringkasan Hari Ini</h2>
@@ -126,7 +133,6 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
       <div class="summary" id="summaryBox"></div>
     </div>
 
-    <!-- Card Import Excel -->
     <div class="card">
       <h2>Import Data (Excel Shopee)</h2>
       <p style="font-size:12px; margin:0 0 10px; color:var(--muted);">
@@ -146,7 +152,6 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
       </div>
     </div>
 
-    <!-- Tambah Transaksi Manual dengan Input HPP Mandiri -->
     <div class="card">
       <h2>Tambah Transaksi Manual</h2>
       <div class="grid">
@@ -156,7 +161,6 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
         <div><label>Ukuran</label><input id="t_ukuran" list="dl_ukuran"></div>
         <div><label>Qty</label><input id="t_qty" type="number" min="1" value="1"></div>
         <div><label>Harga Satuan Jual (Rp)</label><input id="t_harga" type="number" min="0"></div>
-        <!-- Field HPP baru agar bisa diisi manual -->
         <div><label>HPP Satuan (Rp)</label><input id="t_hpp" type="number" min="0" placeholder="Kosong = Auto"></div>
         <div><label>Biaya Admin Shopee (Rp)</label><input id="t_admin" type="number" min="0" value="0"></div>
         <div><label>Status</label>
@@ -198,6 +202,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     </div>
   </section>
 
+  <!-- TAB MASTER HPP -->
   <section id="tab-m" class="tab">
     <div class="card">
       <h2>Tambah / Perbarui Master HPP</h2>
@@ -222,6 +227,7 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     </div>
   </section>
 
+  <!-- TAB BIAYA IKLAN -->
   <section id="tab-a" class="tab">
     <div class="card">
       <h2>Biaya Iklan Shopee Ads Harian</h2>
@@ -242,6 +248,24 @@ tfoot tr td {font-weight:bold; background:var(--surface2); font-size:13px; color
     </div>
   </section>
 
+  <!-- TAB GRAFIK PENJUALAN -->
+  <section id="tab-g" class="tab">
+    <div class="card">
+      <h2>Grafik Tren Penjualan</h2>
+      <p style="font-size:12px; color:var(--muted); margin-top:0;">Pilih rentang waktu untuk melihat grafik produk terjual dan omset harian.</p>
+      <div class="grid">
+        <div><label>Dari Tanggal</label><input type="date" id="g_start"></div>
+        <div><label>Sampai Tanggal</label><input type="date" id="g_end"></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn" id="btnLoadGrafik">Tampilkan Grafik</button>
+      </div>
+      <div class="chart-container">
+        <canvas id="orderChart"></canvas>
+      </div>
+    </div>
+  </section>
+
   <div style="text-align:center; margin-top:20px;">
     <span id="statusBar"></span>
   </div>
@@ -256,11 +280,14 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // === STATE ===
 let masterList = [], masterMap = {};
 let dayRows = [];
+let orderChartInst = null; // Variabel penampung instance grafik
 
 // === UTILS ===
+function localDateStr(dateObj) {
+  return dateObj.getFullYear()+'-'+String(dateObj.getMonth()+1).padStart(2,'0')+'-'+String(dateObj.getDate()).padStart(2,'0');
+}
 function todayStr(){
-  const d = new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return localDateStr(new Date());
 }
 function rupiah(n){
   return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n||0);
@@ -291,7 +318,7 @@ function flashMsg(id, msg, ms=2000){
   setTimeout(()=>el.textContent='', ms);
 }
 
-// Helper untuk cari HPP.
+// Helper untuk cari HPP
 function findHpp(produk, variasi = '', ukuran = '') {
   const exact = masterMap[keyOf(produk, variasi, ukuran)];
   if (exact) return exact.hpp || 0;
@@ -306,6 +333,11 @@ document.querySelectorAll('nav button').forEach(b=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+    
+    // Jika tab grafik ditekan dan grafik belum diload, load otomatis
+    if(b.dataset.tab === 'g' && !orderChartInst) {
+       loadChartData();
+    }
   };
 });
 
@@ -321,9 +353,7 @@ async function loadMaster(){
   const dp=document.getElementById('dl_produk'), dv=document.getElementById('dl_variasi'), du=document.getElementById('dl_ukuran');
   const uniq=arr=>[...new Set(arr.filter(Boolean))];
   
-  // Membatasi pilihan produk sesuai konfigurasi yang diminta
   dp.innerHTML = `<option value="Blouse Polkadot Terbaru"><option value="Kemeja Polkadot">`;
-  
   dv.innerHTML = uniq(masterList.map(m=>m.variasi)).map(v=>`<option value="${esc(v)}">`).join('');
   du.innerHTML = uniq(masterList.map(m=>m.ukuran)).map(v=>`<option value="${esc(v)}">`).join('');
 }
@@ -402,7 +432,6 @@ function renderDayTable(){
     const profit = r.status==='Selesai' ? (total-hppTotal-(r.biaya_admin||0)) : 0;
     const warn = r.hpp_satuan===0 ? ' <span class="warn">⚠ HPP belum ada</span>' : '';
     
-    // Kalkulasi Total untuk Footer (hanya yang berstatus selesai)
     if(r.status === 'Selesai') {
         sumQty += (r.qty||0);
         sumJual += total;
@@ -424,7 +453,6 @@ function renderDayTable(){
     </tr>`;
   }).join('');
   
-  // Render Baris Total
   tf.innerHTML = `
     <tr>
       <td colspan="3" style="text-align:right;">TOTAL (Transaksi Selesai):</td>
@@ -465,7 +493,6 @@ async function deleteTransaksi(id){
 
 document.getElementById('selDate').addEventListener('change', e=>loadDay(e.target.value));
 
-// Auto-fill HPP saat nama produk / variasi diketik
 function autoFillHpp() {
     const p = document.getElementById('t_produk').value.trim();
     const v = document.getElementById('t_variasi').value.trim();
@@ -493,7 +520,6 @@ document.getElementById('btnSimpanT').addEventListener('click', async ()=>{
   
   let hpp_satuan = inputHpp;
   
-  // Jika User mengisi HPP Manual di form transaksi, otomatis cek & simpan ke Master HPP
   if(inputHpp > 0) {
       const existingHpp = findHpp(produk, variasi, ukuran);
       if(existingHpp !== inputHpp) {
@@ -504,10 +530,9 @@ document.getElementById('btnSimpanT').addEventListener('click', async ()=>{
           } else {
               await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp: inputHpp});
           }
-          await loadMaster(); // Refresh list master di latar belakang
+          await loadMaster(); 
       }
   } else {
-      // Fallback jika tidak diisi manual
       hpp_satuan = findHpp(produk, variasi, ukuran);
   }
   
@@ -724,14 +749,143 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   setTimeout(()=>setStatus('',''),3000);
 });
 
+// === GRAFIK TREN PENJUALAN ===
+document.getElementById('btnLoadGrafik').addEventListener('click', loadChartData);
+
+async function loadChartData() {
+  const start = document.getElementById('g_start').value;
+  const end = document.getElementById('g_end').value;
+  if(!start || !end) {
+    alert('Pilih rentang tanggal terlebih dahulu');
+    return;
+  }
+  
+  setStatus('Memuat data grafik...', 'msg');
+  
+  const {data, error} = await sb.from('transaksi')
+    .select('tanggal, qty, harga, status')
+    .gte('tanggal', start)
+    .lte('tanggal', end)
+    .order('tanggal', {ascending: true});
+  
+  if(error) {
+    alert('Gagal memuat grafik: ' + error.message);
+    setStatus('', '');
+    return;
+  }
+  
+  // Persiapkan objek tanggal dari start sampai end agar tidak ada hari yang bolong
+  const grouped = {};
+  let currDate = new Date(start);
+  const endDateObj = new Date(end);
+  
+  while(currDate <= endDateObj) {
+    const dStr = localDateStr(currDate);
+    grouped[dStr] = { qty: 0, omset: 0 };
+    currDate.setDate(currDate.getDate() + 1);
+  }
+
+  // Isi data ke masing-masing tanggal
+  (data || []).forEach(r => {
+    const tgl = r.tanggal;
+    if(grouped[tgl]) {
+      grouped[tgl].qty += (r.qty || 1); 
+      if(r.status === 'Selesai') {
+        grouped[tgl].omset += (r.qty || 0) * (r.harga || 0);
+      }
+    }
+  });
+
+  const labels = Object.keys(grouped);
+  const dataQty = labels.map(l => grouped[l].qty);
+  const dataOmset = labels.map(l => grouped[l].omset);
+
+  renderChart(labels, dataQty, dataOmset);
+  setStatus('', '');
+}
+
+function renderChart(labels, dataQty, dataOmset) {
+  const ctx = document.getElementById('orderChart').getContext('2d');
+  
+  // Hapus grafik lama jika sudah ada
+  if(orderChartInst) {
+      orderChartInst.destroy();
+  }
+  
+  orderChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Produk Terjual (Qty)',
+          data: dataQty,
+          borderColor: '#e74c3c',
+          backgroundColor: 'rgba(231, 76, 60, 0.1)',
+          yAxisID: 'y1',
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: 'Omset Selesai (Rp)',
+          data: dataOmset,
+          borderColor: '#1F3864',
+          backgroundColor: 'rgba(31, 56, 100, 0.1)',
+          yAxisID: 'y2',
+          tension: 0.3,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      scales: {
+        x: {
+          display: true,
+          title: { display: true, text: 'Tanggal' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Qty' },
+          beginAtZero: true,
+          ticks: { stepSize: 1 }
+        },
+        y2: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'Omset (Rp)' },
+          grid: { drawOnChartArea: false },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
 // === INIT ===
 async function init(){
-  document.getElementById('selDate').value = todayStr();
-  document.getElementById('a_tgl').value = todayStr();
+  const tToday = todayStr();
+  document.getElementById('selDate').value = tToday;
+  document.getElementById('a_tgl').value = tToday;
+  
+  // Setel rentang waktu grafik default (14 hari terakhir)
+  const d = new Date();
+  document.getElementById('g_end').value = localDateStr(d);
+  d.setDate(d.getDate() - 14);
+  document.getElementById('g_start').value = localDateStr(d);
+
   setStatus('Menghubungkan ke database…');
   try{
     await loadMaster();
-    await loadDay(todayStr());
+    await loadDay(tToday);
     await loadAds();
     setStatus('Terhubung ke Supabase ✓','ok');
     setTimeout(()=>setStatus('',''),3000);
