@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Input Penjualan Shopee</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F3864">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shopee Sales">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Library untuk membaca file Excel (.xlsx) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --bg:#f3f4f8; --surface:#ffffff; --surface2:#f8f9fc; --text:#1a1d29; --muted:#6b7280;
+  --border:#e2e5eb; --accent:#1F3864; --accent2:#2e5090; --success:#1e7e34; --success-bg:#e6f4ea;
+  --danger:#c0392b; --danger-bg:#fdecea; --warn-bg:#fff3cd; --warn-text:#8a6d1a;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111318; --surface:#1b1e26; --surface2:#20242e; --text:#e8e9ed; --muted:#9aa0ab;
+    --border:#2b2f3a; --accent:#6f93cc; --accent2:#5779ad; --success:#4caf50; --success-bg:#1c3324;
+    --danger:#ef5350; --danger-bg:#3a2222; --warn-bg:#473c1b; --warn-text:#e0c068;
+  }
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:Arial,Helvetica,sans-serif;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+header{
+  background:var(--accent); color:#fff; padding:16px 16px; position:sticky; top:0; z-index:5;
+  padding-top:calc(16px + env(safe-area-inset-top,0px));
+}
+header h1{margin:0; font-size:18px;}
+header p{margin:4px 0 0; font-size:12px; opacity:.85;}
+nav{display:flex; gap:6px; margin-top:12px; overflow-x:auto;}
+nav button{
+  background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:8px;
+  padding:8px 12px; font-size:13px; cursor:pointer; white-space:nowrap;
+}
+nav button.active{background:#fff; color:var(--accent); font-weight:bold;}
+main{max-width:900px; margin:0 auto; padding:14px 14px 40px;}
+.tab{display:none;}
+.tab.active{display:block;}
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:14px;
+}
+.card h2{margin:0 0 10px; font-size:15px; color:var(--accent);}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px;}
+label{display:block; font-size:11px; color:var(--muted); margin-bottom:3px;}
+input,select{
+  width:100%; padding:8px; border:1px solid var(--border); border-radius:7px; background:var(--surface2);
+  color:var(--text); font-size:14px;
+}
+input:focus,select:focus{outline:2px solid var(--accent2);}
+.btn{
+  background:var(--accent); color:#fff; border:none; border-radius:7px; padding:9px 16px; font-size:14px;
+  cursor:pointer; font-weight:bold;
+}
+.btn.secondary{background:transparent; color:var(--accent); border:1px solid var(--accent);}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+.row-actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px;}
+.stat{background:var(--surface2); border-radius:9px; padding:10px;}
+.stat .lbl{font-size:11px; color:var(--muted);}
+.stat .val{font-size:15px; font-weight:bold; margin-top:2px;}
+.stat.profit .val{color:var(--success);}
+.stat.profit.neg .val{color:var(--danger);}
+.tablewrap{overflow-x:auto; margin-top:10px;}
+table{border-collapse:collapse; width:100%; font-size:12.5px;}
+th,td{padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
+th{color:var(--muted); font-weight:normal; font-size:11px;}
+tr:nth-child(even){background:var(--surface2);}
+.badge{padding:2px 7px; border-radius:20px; font-size:11px;}
+.badge.Selesai{background:var(--success-bg); color:var(--success);}
+.badge.Retur{background:var(--danger-bg); color:var(--danger);}
+.badge.Dibatalkan{background:var(--surface2); color:var(--muted);}
+.warn{color:var(--warn-text); font-size:11px;}
+.del{background:none; border:none; color:var(--danger); cursor:pointer; font-size:15px; padding:2px 6px;}
+.msg{font-size:12px; color:var(--muted);}
+.banner{background:var(--warn-bg); color:var(--warn-text); padding:10px 14px; border-radius:9px; font-size:12.5px; margin-bottom:14px;}
+.empty{color:var(--muted); font-size:13px; padding:10px 0;}
+.loading{color:var(--muted); font-size:13px; padding:10px 0; font-style:italic;}
+#statusBar{font-size:11px; color:var(--muted); margin-top:4px;}
+#statusBar.ok{color:var(--success);}
+#statusBar.err{color:var(--danger);}
+</style>
+</head>
+<body>
+<header>
+  <h1>Input Penjualan Shopee</h1>
+  <p>Catat transaksi, HPP, dan biaya iklan secara cepat</p>
+  <nav>
+    <button data-tab="t" class="active">Transaksi</button>
+    <button data-tab="m">Master HPP</button>
+    <button data-tab="a">Biaya Iklan</button>
+  </nav>
+</header>
+<main>
+  <div id="bannerWrap"></div>
+  <div id="installBanner" style="display:none; background:var(--accent); color:#fff; padding:10px 14px; border-radius:9px; margin-bottom:14px; align-items:center; gap:10px; flex-wrap:wrap;">
+    <span style="flex:1; font-size:13px;">📲 Pasang aplikasi ini di layar utama agar bisa dipakai offline.</span>
+    <button id="btnInstall" style="background:#fff; color:var(--accent); border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:bold; cursor:pointer;">Pasang</button>
+    <button id="btnDismissInstall" style="background:rgba(255,255,255,.2); color:#fff; border:none; border-radius:6px; padding:7px 10px; font-size:13px; cursor:pointer;">Nanti</button>
+  </div>
+  <div id="offlineBanner" style="display:none; background:var(--warn-bg); color:var(--warn-text); padding:8px 14px; border-radius:9px; margin-bottom:10px; font-size:12.5px;">
+    ⚠️ Tidak ada koneksi internet. Data baru tidak bisa disimpan sampai kembali online.
+  </div>
+
+  <section id="tab-t" class="tab active">
+    <div class="card">
+      <h2>Ringkasan Hari Ini</h2>
+      <div class="grid" style="margin-bottom:10px;">
+        <div><label>Tanggal</label><input type="date" id="selDate"></div>
+      </div>
+      <div class="summary" id="summaryBox"></div>
+    </div>
+
+    <!-- Card Import Excel: Otomatis mendeteksi Order / Penghasilan -->
+    <div class="card">
+      <h2>Import Data (Excel Shopee)</h2>
+      <p style="font-size:12px; margin:0 0 10px; color:var(--muted);">
+        Unggah file <b>"Order"</b> ataupun <b>"Penghasilan"</b>. Sistem akan mendeteksinya otomatis.
+      </p>
+      <div class="grid" style="align-items:end;">
+        <div>
+          <label>Pilih File (.xlsx)</label>
+          <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv">
+        </div>
+        <div>
+          <button class="btn" id="btnUploadExcel">Proses File Excel</button>
+        </div>
+      </div>
+      <div class="row-actions">
+        <span class="msg" id="excel_msg"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tambah Transaksi Manual</h2>
+      <div class="grid">
+        <div><label>No. Pesanan</label><input id="t_no" placeholder="SP2610..."></div>
+        <div><label>Produk</label><input id="t_produk" list="dl_produk" required></div>
+        <div><label>Variasi</label><input id="t_variasi" list="dl_variasi"></div>
+        <div><label>Ukuran</label><input id="t_ukuran" list="dl_ukuran"></div>
+        <div><label>Qty</label><input id="t_qty" type="number" min="1" value="1"></div>
+        <div><label>Harga Satuan (Rp)</label><input id="t_harga" type="number" min="0"></div>
+        <div><label>Status</label>
+          <select id="t_status">
+            <option>Selesai</option><option>Retur</option><option>Dibatalkan</option>
+          </select>
+        </div>
+        <div><label>Biaya Admin Shopee (Rp)</label><input id="t_admin" type="number" min="0" value="0"></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn" id="btnSimpanT">Tambah Transaksi</button>
+        <span class="msg" id="t_msg"></span>
+      </div>
+      <datalist id="dl_produk"></datalist>
+      <datalist id="dl_variasi"></datalist>
+      <datalist id="dl_ukuran"></datalist>
+    </div>
+
+    <div class="card">
+      <h2>Transaksi Tanggal Ini</h2>
+      <div class="tablewrap">
+        <table id="tblT"><thead><tr>
+          <th>No. Pesanan</th><th>Produk</th><th>Var/Ukuran</th><th>Qty</th><th>Total Jual</th>
+          <th>HPP</th><th>Admin</th><th>Status</th><th>Profit</th><th></th>
+        </tr></thead><tbody><tr><td colspan="10" class="loading">Memuat data…</td></tr></tbody></table>
+      </div>
+      <div class="row-actions">
+        <button class="btn secondary" id="btnExport">Unduh CSV Semua Transaksi</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-m" class="tab">
+    <div class="card">
+      <h2>Tambah / Perbarui HPP</h2>
+      <div class="grid">
+        <div><label>Nama Produk</label><input id="m_produk" required></div>
+        <div><label>Variasi</label><input id="m_variasi"></div>
+        <div><label>Ukuran</label><input id="m_ukuran"></div>
+        <div><label>HPP per Unit (Rp)</label><input id="m_hpp" type="number" min="0"></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn" id="btnSimpanM">Simpan HPP</button>
+        <span class="msg" id="m_msg"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Daftar Master HPP</h2>
+      <div class="tablewrap">
+        <table id="tblM"><thead><tr>
+          <th>Produk</th><th>Variasi</th><th>Ukuran</th><th>HPP/Unit</th><th></th>
+        </tr></thead><tbody><tr><td colspan="5" class="loading">Memuat data…</td></tr></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-a" class="tab">
+    <div class="card">
+      <h2>Biaya Iklan Shopee Ads Harian</h2>
+      <div class="grid">
+        <div><label>Tanggal</label><input id="a_tgl" type="date" required></div>
+        <div><label>Biaya Iklan (Rp)</label><input id="a_biaya" type="number" min="0"></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn" id="btnSimpanA">Simpan</button>
+        <span class="msg" id="a_msg"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>14 Hari Terakhir</h2>
+      <div class="tablewrap">
+        <table id="tblA"><thead><tr><th>Tanggal</th><th>Biaya Iklan</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <div style="text-align:center; margin-top:20px;">
+    <span id="statusBar"></span>
+  </div>
+</main>
+
+<script>
+// === SUPABASE CONFIG ===
+const SUPABASE_URL = 'https://filmzkgeoqriaonftsmm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_jIPOL2AGoX5DTAHKz4BATA_chT8PFZg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// === STATE ===
+let masterList = [], masterMap = {};
+let dayRows = [];
+
+// === UTILS ===
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function rupiah(n){
+  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n||0);
+}
+function esc(s){
+  return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function keyOf(p,v,u){ return (p||'').trim()+'|'+(v||'').trim()+'|'+(u||'').trim(); }
+function setStatus(msg, type=''){
+  const el = document.getElementById('statusBar');
+  el.textContent = msg; el.className = type;
+}
+function flashMsg(id, msg, ms=2000){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg;
+  setTimeout(()=>el.textContent='', ms);
+}
+
+// Helper untuk cari HPP. Utamakan persis dengan variasi, jika tidak ada, pakai fallback dari nama produk saja
+function findHpp(produk, variasi = '', ukuran = '') {
+  const exact = masterMap[keyOf(produk, variasi, ukuran)];
+  if (exact) return exact.hpp || 0;
+  
+  // Fallback: Cari yang nama produknya sama (mengabaikan variasi/ukuran)
+  const m = masterList.find(x => String(x.produk).toLowerCase() === String(produk).toLowerCase());
+  return m ? (m.hpp || 0) : 0;
+}
+
+// === NAV ===
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+  };
+});
+
+// === MASTER HPP ===
+async function loadMaster(){
+  const {data, error} = await sb.from('masterhpp').select('*').order('produk');
+  if(error){ setStatus('Gagal memuat Master HPP: '+error.message,'err'); return; }
+  masterList = data || [];
+  masterMap = {};
+  masterList.forEach(m=>{ masterMap[keyOf(m.produk,m.variasi,m.ukuran)] = m; });
+  renderMasterTable();
+  const dp=document.getElementById('dl_produk'), dv=document.getElementById('dl_variasi'), du=document.getElementById('dl_ukuran');
+  const uniq=arr=>[...new Set(arr.filter(Boolean))];
+  dp.innerHTML = uniq(masterList.map(m=>m.produk)).map(v=>`<option value="${esc(v)}">`).join('');
+  dv.innerHTML = uniq(masterList.map(m=>m.variasi)).map(v=>`<option value="${esc(v)}">`).join('');
+  du.innerHTML = uniq(masterList.map(m=>m.ukuran)).map(v=>`<option value="${esc(v)}">`).join('');
+}
+
+function renderMasterTable(){
+  const tb = document.querySelector('#tblM tbody');
+  if(!masterList.length){
+    tb.innerHTML='<tr><td colspan="5" class="empty">Belum ada data HPP</td></tr>'; return;
+  }
+  tb.innerHTML = masterList.map(m=>`<tr>
+    <td>${esc(m.produk)}</td><td>${esc(m.variasi)}</td><td>${esc(m.ukuran)}</td>
+    <td>${rupiah(m.hpp)}</td>
+    <td><button class="del" onclick="deleteMaster('${m.id}')">&times;</button></td>
+  </tr>`).join('');
+}
+
+async function deleteMaster(id){
+  if(!confirm('Hapus data HPP ini?')) return;
+  const {error} = await sb.from('masterhpp').delete().eq('id', id);
+  if(error){ alert('Gagal hapus: '+error.message); return; }
+  await loadMaster();
+  await loadDay(document.getElementById('selDate').value);
+}
+
+document.getElementById('btnSimpanM').addEventListener('click', async ()=>{
+  const produk = document.getElementById('m_produk').value.trim();
+  const variasi = document.getElementById('m_variasi').value.trim();
+  const ukuran = document.getElementById('m_ukuran').value.trim();
+  const hpp = Number(document.getElementById('m_hpp').value)||0;
+  if(!produk){ alert('Nama produk wajib diisi'); return; }
+  const k = keyOf(produk, variasi, ukuran);
+  const existing = masterMap[k];
+  let error;
+  if(existing){
+    ({error} = await sb.from('masterhpp').update({hpp}).eq('id', existing.id));
+  } else {
+    ({error} = await sb.from('masterhpp').insert({produk, variasi, ukuran, hpp}));
+  }
+  if(error){ alert('Gagal simpan: '+error.message); return; }
+  flashMsg('m_msg', 'Tersimpan.');
+  ['m_produk','m_variasi','m_ukuran','m_hpp'].forEach(id=>document.getElementById(id).value='');
+  await loadMaster();
+});
+
+// === TRANSAKSI ===
+async function loadDay(dateStr){
+  const {data, error} = await sb.from('transaksi')
+    .select('*').eq('tanggal', dateStr).order('created_at');
+  if(error){ setStatus('Gagal memuat transaksi: '+error.message,'err'); return; }
+  dayRows = data || [];
+  
+  let adsBiaya = 0;
+  const {data: adData} = await sb.from('biayaharian').select('biaya_iklan').eq('tanggal', dateStr).maybeSingle();
+  if(adData) adsBiaya = adData.biaya_iklan || 0;
+  
+  renderDayTable();
+  renderSummary(adsBiaya);
+  setStatus('', '');
+}
+
+function renderDayTable(){
+  const tb = document.querySelector('#tblT tbody');
+  if(!dayRows.length){
+    tb.innerHTML='<tr><td colspan="10" class="empty">Belum ada transaksi di tanggal ini</td></tr>'; return;
+  }
+  tb.innerHTML = dayRows.map(r=>{
+    const total = (r.qty||0)*(r.harga||0);
+    const hppTotal = (r.qty||0)*(r.hpp_satuan||0);
+    const profit = r.status==='Selesai' ? (total-hppTotal-(r.biaya_admin||0)) : 0;
+    const warn = r.hpp_satuan===0 ? ' <span class="warn">⚠ HPP belum ada</span>' : '';
+    
+    // Rapi formating nama variasi di tabel (jika ada)
+    let varInfo = [];
+    if(r.variasi) varInfo.push(esc(r.variasi));
+    if(r.ukuran) varInfo.push(esc(r.ukuran));
+    const labelVar = varInfo.length ? varInfo.join('/') : '-';
+
+    return `<tr>
+      <td>${esc(r.no_pesanan)}</td><td>${esc(r.produk)}</td><td>${labelVar}${warn}</td>
+      <td>${r.qty}</td><td>${rupiah(total)}</td><td>${rupiah(hppTotal)}</td><td>${rupiah(r.biaya_admin)}</td>
+      <td><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td><td>${rupiah(profit)}</td>
+      <td><button class="del" onclick="deleteTransaksi('${r.id}')">&times;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSummary(adsBiaya){
+  const selesai = dayRows.filter(r=>r.status==='Selesai');
+  const totalJual = selesai.reduce((s,r)=>s+(r.qty||0)*(r.harga||0),0);
+  const totalHpp = selesai.reduce((s,r)=>s+(r.qty||0)*(r.hpp_satuan||0),0);
+  const totalAdmin = selesai.reduce((s,r)=>s+(r.biaya_admin||0),0);
+  const retur = dayRows.filter(r=>r.status==='Retur').reduce((s,r)=>s+(r.qty||0)*(r.harga||0),0);
+  const profit = totalJual-totalHpp-totalAdmin-adsBiaya;
+  document.getElementById('summaryBox').innerHTML = `
+    <div class="stat"><div class="lbl">Total Penjualan</div><div class="val">${rupiah(totalJual)}</div></div>
+    <div class="stat"><div class="lbl">Total HPP</div><div class="val">${rupiah(totalHpp)}</div></div>
+    <div class="stat"><div class="lbl">Biaya Admin</div><div class="val">${rupiah(totalAdmin)}</div></div>
+    <div class="stat"><div class="lbl">Biaya Iklan</div><div class="val">${rupiah(adsBiaya)}</div></div>
+    <div class="stat"><div class="lbl">Nilai Retur</div><div class="val">${rupiah(retur)}</div></div>
+    <div class="stat profit ${profit<0?'neg':''}"><div class="lbl">Profit Bersih</div><div class="val">${rupiah(profit)}</div></div>
+  `;
+}
+
+async function deleteTransaksi(id){
+  if(!confirm('Hapus transaksi ini?')) return;
+  const {error} = await sb.from('transaksi').delete().eq('id', id);
+  if(error){ alert('Gagal hapus: '+error.message); return; }
+  await loadDay(document.getElementById('selDate').value);
+}
+
+document.getElementById('selDate').addEventListener('change', e=>loadDay(e.target.value));
+
+document.getElementById('btnSimpanT').addEventListener('click', async ()=>{
+  const tanggal = document.getElementById('selDate').value || todayStr();
+  const produk = document.getElementById('t_produk').value.trim();
+  const variasi = document.getElementById('t_variasi').value.trim();
+  const ukuran = document.getElementById('t_ukuran').value.trim();
+  const qty = Number(document.getElementById('t_qty').value)||0;
+  const harga = Number(document.getElementById('t_harga').value)||0;
+  const status = document.getElementById('t_status').value;
+  const biaya_admin = Number(document.getElementById('t_admin').value)||0;
+  const no_pesanan = document.getElementById('t_no').value.trim();
+  if(!produk || qty<=0){ alert('Produk dan Qty wajib diisi'); return; }
+  
+  const hpp_satuan = findHpp(produk, variasi, ukuran);
+  
+  const {error} = await sb.from('transaksi').insert({
+    tanggal, no_pesanan, produk, variasi, ukuran, qty, harga, status, biaya_admin, hpp_satuan
+  });
+  if(error){ alert('Gagal simpan: '+error.message); return; }
+  flashMsg('t_msg', hpp_satuan > 0 ? 'Tersimpan.' : 'Tersimpan (HPP belum ada di Master).');
+  ['t_no','t_produk','t_variasi','t_ukuran','t_harga'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('t_qty').value=1;
+  document.getElementById('t_admin').value=0;
+  document.getElementById('t_status').value='Selesai';
+  document.getElementById('t_produk').focus();
+  await loadDay(tanggal);
+});
+
+// === IMPORT EXCEL (SMART DETECT: ORDER / INCOME) ===
+document.getElementById('btnUploadExcel').addEventListener('click', () => {
+  const fileInput = document.getElementById('fileExcel');
+  if (!fileInput.files.length) {
+    alert('Pilih file Excel terlebih dahulu!');
+    return;
+  }
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  
+  reader.onload = async (e) => {
+    try {
+      setStatus('Membaca file Excel...', 'msg');
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Pilih sheet, prioritaskan yg ada nama "penghasilan"
+      let sheetName = workbook.SheetNames.find(s => String(s).toLowerCase().includes('penghasilan'));
+      if (!sheetName) sheetName = workbook.SheetNames[0]; // fallback sheet pertama
+      
+      const sheet = workbook.Sheets[sheetName];
+      // Ambil sebagai array of arrays dulu untuk deteksi baris Header
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      
+      let headerIdx = -1;
+      let fileType = ''; // 'income' atau 'order'
+      
+      // Mencari baris header dengan membaca 20 baris pertama
+      for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
+        const rowStr = rawRows[i].map(x => String(x).trim());
+        // Deteksi File Penghasilan (Income)
+        if (rowStr.includes('No. Pesanan') && rowStr.includes('Total Penghasilan')) {
+          headerIdx = i; fileType = 'income'; break;
+        }
+        // Deteksi File Pesanan (Order)
+        if (rowStr.includes('No. Pesanan') && (rowStr.includes('Status Pesanan') || rowStr.includes('Waktu Pesanan Dibuat'))) {
+          headerIdx = i; fileType = 'order'; break;
+        }
+      }
+      
+      if (headerIdx === -1) {
+        alert('Format file tidak dikenali. Pastikan ini adalah file Order atau Penghasilan dari Shopee.');
+        setStatus(''); return;
+      }
+      
+      // Mengubah ulang menjadi format Object (Key = Header) mulai dari baris yg ditemukan
+      const rows = XLSX.utils.sheet_to_json(sheet, { range: headerIdx, defval: '' });
+      const transactions = [];
+      
+      if (fileType === 'income') {
+        // === LOGIKA PARSING PENGHASILAN (INCOME) ===
+        rows.forEach(row => {
+          const lihat = String(row['Lihat berdasarkan'] || '').toLowerCase();
+          const noPesanan = row['No. Pesanan'];
+          
+          // Sesuai kesepakatan: ambil yang Sku saja
+          if (!noPesanan || lihat !== 'sku') return; 
+          
+          const tanggalStr = row['Waktu Pesanan Dibuat'] || '';
+          const tanggal = String(tanggalStr).split(' ')[0] || todayStr();
+          
+          const produk = String(row['Nama Produk'] || '').trim();
+          
+          const rawHarga = row['Harga Produk'];
+          const harga = typeof rawHarga === 'number' ? rawHarga : Number(String(rawHarga).replace(/[^0-9.-]+/g, '')) || 0;
+          
+          const rawPenghasilan = row['Total Penghasilan'];
+          const penghasilan = typeof rawPenghasilan === 'number' ? rawPenghasilan : Number(String(rawPenghasilan).replace(/[^0-9.-]+/g, '')) || 0;
+          
+          const rawPengembalian = row['Jumlah Pengembalian Dana ke Pembeli'];
+          const pengembalian = typeof rawPengembalian === 'number' ? rawPengembalian : Number(String(rawPengembalian).replace(/[^0-9.-]+/g, '')) || 0;
+          
+          // Otomatis Deteksi Retur
+          let status = 'Selesai';
+          if (pengembalian < 0 || penghasilan < 0) status = 'Retur';
+          
+          // Potongan admin (selisih murni)
+          let potonganAdmin = 0;
+          if (status === 'Selesai') {
+            potonganAdmin = harga - penghasilan;
+            if (potonganAdmin < 0) potonganAdmin = 0;
+          }
+          
+          // HPP - Sama rata berdasarkan Nama Produk
+          const hpp_satuan = findHpp(produk);
+          
+          transactions.push({
+            tanggal: tanggal,
+            no_pesanan: noPesanan,
+            produk: produk,
+            variasi: '',
+            ukuran: '',
+            qty: 1, // Fix 1 Qty / row Sku
+            harga: harga,
+            status: status,
+            biaya_admin: potonganAdmin,
+            hpp_satuan: hpp_satuan
+          });
+        });
+        
+      } else if (fileType === 'order') {
+        // === LOGIKA PARSING PESANAN (ORDER LAMA) ===
+        rows.forEach(row => {
+          const noPesanan = row['No. Pesanan'];
+          if (!noPesanan) return;
+          
+          const waktuDibuat = row['Waktu Pesanan Dibuat'] || '';
+          const tanggal = String(waktuDibuat).split(' ')[0] || todayStr();
+          
+          const produk = row['Nama Produk'] || '';
+          const rawVariasi = row['Nama Variasi'] || '';
+          let variasi = rawVariasi;
+          let ukuran = '';
+          if (rawVariasi.includes(',')) {
+            const parts = rawVariasi.split(',');
+            ukuran = parts.pop().trim();
+            variasi = parts.join(',').trim();
+          }
+          
+          const qty = parseInt(row['Jumlah']) || 1;
+          
+          // Parse Money helper
+          const parseMoney = (val) => {
+            if (typeof val === 'number') {
+              if (val < 100000 && !Number.isInteger(val)) return Math.round(val * 1000);
+              if (val < 10000) return val * 1000;
+              return val;
+            }
+            return parseInt(String(val).replace(/[^0-9]/g, '')) || 0;
+          };
+          
+          const harga = parseMoney(row['Harga Setelah Diskon']);
+          const subtotal = parseMoney(row['Subtotal Pesanan']);
+          const totalBayar = parseMoney(row['Total Pembayaran']);
+          
+          let potonganAdmin = 0;
+          if (subtotal > 0 && totalBayar > 0) {
+             potonganAdmin = subtotal - totalBayar;
+             if (potonganAdmin < 0) potonganAdmin = 0;
+          }
+  
+          const rawStatus = String(row['Status Pesanan'] || '').toLowerCase();
+          let status = 'Selesai';
+          if (rawStatus.includes('batal')) status = 'Dibatalkan';
+          else if (rawStatus.includes('retur') || rawStatus.includes('pengembalian')) status = 'Retur';
+          
+          const hpp_satuan = findHpp(produk, variasi, ukuran);
+          
+          transactions.push({
+            tanggal, no_pesanan: noPesanan, produk, variasi, ukuran,
+            qty, harga, status, biaya_admin: potonganAdmin, hpp_satuan
+          });
+        });
+      }
+      
+      // Simpan Ke Database
+      if (transactions.length > 0) {
+        setStatus(`Menyimpan ${transactions.length} data (${fileType}) ke database...`, 'msg');
+        
+        const { error } = await sb.from('transaksi').insert(transactions);
+        if (error) {
+          alert('Gagal simpan: ' + error.message);
+          setStatus('Gagal import.', 'err');
+        } else {
+          alert(`Berhasil import ${transactions.length} transaksi dari file ${fileType === 'income' ? 'Penghasilan' : 'Order'}!`);
+          setStatus('Import selesai.', 'ok');
+          document.getElementById('fileExcel').value = '';
+          
+          const tglLoad = transactions[0].tanggal;
+          document.getElementById('selDate').value = tglLoad;
+          await loadDay(tglLoad);
+        }
+      } else {
+        alert('Tidak ada data transaksi yang valid untuk diimport pada file ini.');
+        setStatus('');
+      }
+    } catch (err) {
+      alert('Error saat memproses Excel: ' + err.message);
+      setStatus('Error import', 'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// === BIAYA IKLAN ===
+async function loadAds(){
+  const {data, error} = await sb.from('biayaharian')
+    .select('*').order('tanggal', {ascending:false}).limit(14);
+  if(error){ return; }
+  const rows = data || [];
+  const tb = document.querySelector('#tblA tbody');
+  tb.innerHTML = rows.length
+    ? rows.map(r=>`<tr><td>${esc(r.tanggal)}</td><td>${rupiah(r.biaya_iklan)}</td></tr>`).join('')
+    : '<tr><td colspan="2" class="empty">Belum ada data</td></tr>';
+}
+
+document.getElementById('btnSimpanA').addEventListener('click', async ()=>{
+  const tanggal = document.getElementById('a_tgl').value;
+  const biaya_iklan = Number(document.getElementById('a_biaya').value)||0;
+  if(!tanggal){ alert('Tanggal wajib diisi'); return; }
+  const {error} = await sb.from('biayaharian').upsert({tanggal, biaya_iklan, updated_at: new Date().toISOString()});
+  if(error){ alert('Gagal simpan: '+error.message); return; }
+  flashMsg('a_msg', 'Tersimpan.');
+  await loadAds();
+  if(tanggal === document.getElementById('selDate').value) await loadDay(tanggal);
+});
+
+// === EXPORT CSV ===
+document.getElementById('btnExport').addEventListener('click', async ()=>{
+  setStatus('Mengambil data untuk export…');
+  const {data, error} = await sb.from('transaksi').select('*').order('tanggal').limit(5000);
+  if(error){ alert('Gagal export: '+error.message); setStatus(''); return; }
+  const rows = data || [];
+  const headers = ['Tanggal','No. Pesanan','Produk','Variasi','Ukuran','Qty','Harga Satuan','Total Penjualan','Status','HPP Satuan','Total HPP','Biaya Admin Shopee','Profit Transaksi'];
+  const csvRows = [headers.join(',')];
+  rows.forEach(r=>{
+    const total = (r.qty||0)*(r.harga||0);
+    const hppTotal = (r.qty||0)*(r.hpp_satuan||0);
+    const profit = r.status==='Selesai'?(total-hppTotal-(r.biaya_admin||0)):0;
+    const line = [r.tanggal,r.no_pesanan,r.produk,r.variasi,r.ukuran,r.qty,r.harga,total,r.status,r.hpp_satuan,hppTotal,r.biaya_admin,profit]
+      .map(v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`).join(',');
+    csvRows.push(line);
+  });
+  const blob = new Blob([csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'data-penjualan-shopee.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  setStatus('Export selesai.','ok');
+  setTimeout(()=>setStatus('',''),3000);
+});
+
+// === INIT ===
+async function init(){
+  document.getElementById('selDate').value = todayStr();
+  document.getElementById('a_tgl').value = todayStr();
+  setStatus('Menghubungkan ke database…');
+  try{
+    await loadMaster();
+    await loadDay(todayStr());
+    await loadAds();
+    setStatus('Terhubung ke Supabase ✓','ok');
+    setTimeout(()=>setStatus('',''),3000);
+  }catch(e){
+    setStatus('Gagal terhubung: '+e.message,'err');
+  }
+}
+
+init();
+
+// === PWA SETUP ===
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .catch(err => console.warn('[SW] Registration failed:', err));
+  });
+}
+
+let deferredPrompt = null;
+const installBanner = document.getElementById('installBanner');
+const btnInstall = document.getElementById('btnInstall');
+const btnDismiss = document.getElementById('btnDismissInstall');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem('pwa_dismissed')) {
+    installBanner.style.display = 'flex';
+  }
+});
+
+btnInstall && btnInstall.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBanner.style.display = 'none';
+  if (outcome === 'accepted') setStatus('Aplikasi berhasil dipasang ✓', 'ok');
+});
+
+btnDismiss && btnDismiss.addEventListener('click', () => {
+  installBanner.style.display = 'none';
+  localStorage.setItem('pwa_dismissed', '1');
+});
+
+window.addEventListener('appinstalled', () => {
+  installBanner.style.display = 'none';
+  deferredPrompt = null;
+  setStatus('Aplikasi sudah terpasang ✓', 'ok');
+  setTimeout(() => setStatus('', ''), 3000);
+});
+
+const offlineBanner = document.getElementById('offlineBanner');
+function updateOnlineStatus() {
+  if (!navigator.onLine) {
+    offlineBanner.style.display = 'block';
+    document.querySelectorAll('.btn:not(.secondary)').forEach(b => {
+      if (b.id !== 'btnExport') b.dataset.wasDisabled = b.disabled;
+    });
+  } else {
+    offlineBanner.style.display = 'none';
+  }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+</script>
+</body>
+</html>
