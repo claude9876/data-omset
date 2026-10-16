@@ -50,6 +50,7 @@
       <span class="fname" id="i_name">.xlsx, .xls, atau .csv</span>
       <input type="file" id="i_file" accept=".xlsx,.xls,.csv">
     </label>
+    <div id="i_val"></div>
     <button class="btn primary block" id="i_go" type="button" disabled>Proses file</button>
     <div class="impmsg" id="i_msg" role="status" hidden style="margin-top:12px"></div>
 
@@ -89,7 +90,7 @@
     }
     if (hi < 0) return null;
     const rows = XLSX.utils.sheet_to_json(sh, {range: hi, defval: '', cellDates: true});
-    const out = [];
+    const out = []; let fixed = 0;
 
     rows.forEach(row => {
       const no = row['No. Pesanan'];
@@ -118,6 +119,9 @@
           ukuran = parts.pop().trim();
           variasi = parts.join(',').trim();
         }
+        const v0 = variasi, u0 = ukuran;
+        variasi = cleanColor(variasi); ukuran = cleanSize(ukuran);
+        if (variasi !== v0 || ukuran !== u0) fixed++;
         const qty = parseInt(row['Jumlah']) || 1;
         const harga = parseMoney(row['Harga Setelah Diskon'] || row['Harga Produk']);
         const subtotal = parseMoney(row['Subtotal Pesanan']);
@@ -133,7 +137,7 @@
         });
       }
     });
-    return {type, out};
+    return {type, out, fixed};
   }
 
   /* ---------- proses & simpan ---------- */
@@ -143,7 +147,67 @@
     $('i_name').textContent = f ? f.name : '.xlsx, .xls, atau .csv';
     $('i_go').disabled = !f;
     msg('');
+    checkFile(f);
   });
+
+  /* ---------- validasi warna & ukuran ---------- */
+  const spaces = x => String(x || '').replace(/\s+/g, ' ').trim();
+  function cleanColor(v) {
+    v = spaces(v);
+    if (v && (v === v.toLowerCase() || v === v.toUpperCase()))
+      v = v.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+    return v;
+  }
+  function cleanSize(u) { u = spaces(u); return u.length <= 5 ? u.toUpperCase() : u; }
+  function lev(a, b) {
+    const d = Array.from({length: a.length + 1}, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  function validationHtml(p) {
+    if (p.type !== 'order') {
+      return '<div class="impmsg">File Penghasilan tidak memuat warna dan ukuran. Untuk total per warna dan ukuran, impor juga file Order.</div>';
+    }
+    const rows = p.out, orders = new Set(rows.map(r => r.no_pesanan)).size;
+    const colors = new Map(), sizes = new Set(), noC = [], noS = [], badS = [];
+    rows.forEach(r => {
+      if (r.variasi) colors.set(r.variasi, (colors.get(r.variasi) || 0) + r.qty); else noC.push(r.no_pesanan);
+      if (r.ukuran) { sizes.add(r.ukuran); if (sizeRank(r.ukuran) === 99) badS.push(r.ukuran); } else noS.push(r.no_pesanan);
+    });
+    const typo = [];
+    colors.forEach((qa, a) => colors.forEach((qb, b) => {
+      if (qa <= 2 && qb > qa && lev(a.toLowerCase(), b.toLowerCase()) <= 2) typo.push(`"${a}" (${qa} pcs) mirip "${b}" (${qb} pcs)`);
+    }));
+    const smp = a => { const u = [...new Set(a)]; return u.slice(0, 4).join(', ') + (u.length > 4 ? ', …' : ''); };
+    const list = [];
+    if (noC.length) list.push(`${noC.length} baris tanpa warna (pesanan ${smp(noC)})`);
+    if (noS.length) list.push(`${noS.length} baris tanpa ukuran (pesanan ${smp(noS)})`);
+    if (badS.length) list.push(`Ukuran tidak dikenal: ${smp(badS)}`);
+    typo.slice(0, 4).forEach(t => list.push('Mungkin salah ketik: ' + t));
+    const head = `${rows.length} baris · ${orders} pesanan · ${colors.size} warna · ${sizes.size} ukuran.`;
+    const fx = p.fixed ? ` ${p.fixed} baris dirapikan penulisannya otomatis.` : '';
+    if (!list.length) return `<div class="impmsg ok"><b>Warna dan ukuran valid.</b> ${esc(head + fx)}</div>`;
+    return `<div class="callout"><b>Periksa dulu sebelum disimpan.</b> ${esc(head + fx)}
+      <ul style="margin:8px 0 8px 18px;padding:0">${list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      Data tetap bisa disimpan. Perbaikan bisa dilakukan lewat edit transaksi.</div>`;
+  }
+
+  let cache = null;
+  async function checkFile(f) {
+    cache = null;
+    $('i_val').innerHTML = '';
+    if (!f || typeof XLSX === 'undefined') return;
+    $('i_val').innerHTML = '<div class="impmsg">Memeriksa warna dan ukuran…</div>';
+    try {
+      const p = parseWorkbook(await f.arrayBuffer());
+      if (f !== $('i_file').files[0]) return;
+      if (!p) { $('i_val').innerHTML = ''; return; }
+      cache = {file: f, p};
+      $('i_val').innerHTML = validationHtml(p);
+    } catch (err) { console.error(err); $('i_val').innerHTML = ''; }
+  }
 
   /* Pesanan lama yang tersimpan tanpa variasi (mis. dulu diimpor dari file
      Penghasilan) dilengkapi warna & ukurannya dari file Order. HPP yang masih
@@ -206,7 +270,7 @@
     btn.disabled = true;
     try {
       msg('Membaca file…');
-      const p = parseWorkbook(await file.arrayBuffer());
+      const p = (cache && cache.file === file) ? cache.p : parseWorkbook(await file.arrayBuffer());
       if (!p) { msg('Format file tidak dikenali. Pastikan ini file Order atau Penghasilan dari Shopee.', 'err'); return; }
       if (!p.out.length) { msg('Tidak ada data yang bisa diimpor dari file ini.', 'err'); return; }
 
@@ -252,6 +316,7 @@
       msg(text, 'ok');
       toast(`Impor ${p.type === 'income' ? 'Penghasilan' : 'Order'}: ${saved} baris disimpan.`, {ms: 5000});
       input.value = '';
+      cache = null; $('i_val').innerHTML = '';
       $('i_drop').classList.remove('has-file');
       $('i_name').textContent = '.xlsx, .xls, atau .csv';
       setPeriod('all'); loadVar();
