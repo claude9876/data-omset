@@ -145,6 +145,59 @@
     msg('');
   });
 
+  /* Pesanan lama yang tersimpan tanpa variasi (mis. dulu diimpor dari file
+     Penghasilan) dilengkapi warna & ukurannya dari file Order. HPP yang masih
+     kosong ikut diisi dari Master HPP. Data lain tidak diubah. */
+  async function fillVariasi(fileRows, exist) {
+    const norm = s => String(s || '').trim().toLowerCase();
+    const byNo = new Map();
+    fileRows.forEach(t => {
+      const k = String(t.no_pesanan);
+      if (!exist.has(k) || !(t.variasi || t.ukuran)) return;
+      if (!byNo.has(k)) byNo.set(k, []);
+      byNo.get(k).push(t);
+    });
+    if (!byNo.size) return 0;
+
+    const dbBy = new Map();
+    for (const part of chunk([...byNo.keys()], IN_CHUNK)) {
+      const rows = await fetchAll(
+        () => sb.from('transaksi').select('id, no_pesanan, produk, qty, variasi, hpp_satuan')
+          .in('no_pesanan', part).order('id'), 'Cek variasi lama');
+      rows.filter(r => !String(r.variasi || '').trim()).forEach(r => {
+        const k = String(r.no_pesanan);
+        if (!dbBy.has(k)) dbBy.set(k, []);
+        dbBy.get(k).push(r);
+      });
+    }
+
+    const groups = new Map(), needHpp = [];
+    byNo.forEach((list, no) => {
+      const cand = dbBy.get(no) || [];
+      list.forEach(t => {
+        let i = cand.findIndex(r => norm(r.produk) === norm(t.produk) && Number(r.qty) === t.qty);
+        if (i < 0) i = cand.findIndex(r => norm(r.produk) === norm(t.produk));
+        if (i < 0 && list.length === 1 && cand.length === 1) i = 0;
+        if (i < 0) return;
+        const r = cand.splice(i, 1)[0];
+        const k = t.variasi + '\u0001' + t.ukuran;
+        if (!groups.has(k)) groups.set(k, {variasi: t.variasi, ukuran: t.ukuran, ids: []});
+        groups.get(k).ids.push(r.id);
+        if (!(Number(r.hpp_satuan) > 0)) needHpp.push({id: r.id, produk: t.produk, variasi: t.variasi, ukuran: t.ukuran});
+      });
+    });
+
+    let n = 0;
+    for (const g of groups.values()) {
+      for (const part of chunk(g.ids, IN_CHUNK)) {
+        must(await sb.from('transaksi').update({variasi: g.variasi, ukuran: g.ukuran}).in('id', part), 'Lengkapi variasi');
+        n += part.length;
+      }
+    }
+    if (needHpp.length) await applyMasterHpp(needHpp);
+    return n;
+  }
+
   async function runImport() {
     const input = $('i_file'), btn = $('i_go');
     const file = input.files[0];
@@ -161,7 +214,23 @@
       const exist = await findExistingOrderNos([...new Set(p.out.map(t => t.no_pesanan))]);
       const fresh = p.out.filter(t => !exist.has(String(t.no_pesanan)));
       const dup = p.out.length - fresh.length;
-      if (!fresh.length) { msg('Semua pesanan di file ini sudah ada di database. Tidak ada yang baru.', 'ok'); return; }
+      let filled = 0;
+      if (p.type === 'order' && dup) {
+        msg('Melengkapi warna dan ukuran pesanan lama…');
+        filled = await fillVariasi(p.out, exist);
+      }
+      if (!fresh.length) {
+        if (filled) {
+          markDirty();
+          msg(`Semua pesanan sudah ada. ${filled} baris lama dilengkapi warna dan ukurannya.`, 'ok');
+          toast(`${filled} baris dilengkapi warna dan ukuran.`, {ms: 5000});
+          setPeriod('all'); loadVar();
+          loadDay($('selDate').value, true).catch(() => {});
+        } else {
+          msg('Semua pesanan di file ini sudah ada di database dan warna/ukurannya sudah lengkap. Tidak ada yang baru.', 'ok');
+        }
+        return;
+      }
 
       let saved = 0;
       for (const part of batchByOrder(fresh, INSERT_CHUNK)) {
@@ -178,13 +247,14 @@
       markDirty();
       const noHpp = fresh.filter(t => t.status === 'Selesai' && !(t.hpp_satuan > 0)).length;
       let text = `Berhasil: ${saved} baris disimpan` + (dup ? `, ${dup} dilewati (sudah ada).` : '.');
+      if (filled) text += ` ${filled} baris lama dilengkapi warna dan ukurannya.`;
       if (noHpp) text += ` ${noHpp} baris belum punya HPP, isi di tab Master HPP.`;
       msg(text, 'ok');
       toast(`Impor ${p.type === 'income' ? 'Penghasilan' : 'Order'}: ${saved} baris disimpan.`, {ms: 5000});
       input.value = '';
       $('i_drop').classList.remove('has-file');
       $('i_name').textContent = '.xlsx, .xls, atau .csv';
-      setPeriod('all');
+      setPeriod('all'); loadVar();
       loadDay($('selDate').value, true).catch(() => {});
     } catch (err) {
       console.error(err);
