@@ -241,43 +241,49 @@
   }
 
   /* Pesanan lama yang tersimpan tanpa variasi (mis. dulu diimpor dari file
-     Penghasilan) dilengkapi warna & ukurannya dari file Order. HPP yang masih
+     Penghasilan) disesuaikan nama produk, warna & ukurannya dengan file Order. HPP yang masih
      kosong ikut diisi dari Master HPP. Data lain tidak diubah. */
   async function fillVariasi(fileRows, exist) {
     const norm = s => String(s || '').trim().toLowerCase();
+    const none = {n: 0, renames: [], needHpp: []};
     const byNo = new Map();
     fileRows.forEach(t => {
       const k = String(t.no_pesanan);
-      if (!exist.has(k) || !(t.variasi || t.ukuran)) return;
+      if (!exist.has(k)) return;
       if (!byNo.has(k)) byNo.set(k, []);
       byNo.get(k).push(t);
     });
-    if (!byNo.size) return 0;
+    if (!byNo.size) return none;
 
     const dbBy = new Map();
     for (const part of chunk([...byNo.keys()], IN_CHUNK)) {
       const rows = await fetchAll(
         () => sb.from('transaksi').select('id, no_pesanan, produk, qty, variasi, hpp_satuan')
           .in('no_pesanan', part).order('id'), 'Cek variasi lama');
-      rows.filter(r => !String(r.variasi || '').trim()).forEach(r => {
+      rows.filter(r => !String(r.variasi || '').trim()).forEach(r => {   // hanya yang tanpa variasi
         const k = String(r.no_pesanan);
         if (!dbBy.has(k)) dbBy.set(k, []);
         dbBy.get(k).push(r);
       });
     }
 
-    const groups = new Map(), needHpp = [];
+    const groups = new Map(), needHpp = [], ren = new Map();
     byNo.forEach((list, no) => {
       const cand = dbBy.get(no) || [];
       list.forEach(t => {
         let i = cand.findIndex(r => norm(r.produk) === norm(t.produk) && Number(r.qty) === t.qty);
+        if (i < 0) i = cand.findIndex(r => Number(r.qty) === t.qty);
         if (i < 0) i = cand.findIndex(r => norm(r.produk) === norm(t.produk));
         if (i < 0 && list.length === 1 && cand.length === 1) i = 0;
         if (i < 0) return;
         const r = cand.splice(i, 1)[0];
-        const k = t.variasi + '\u0001' + t.ukuran;
-        if (!groups.has(k)) groups.set(k, {variasi: t.variasi, ukuran: t.ukuran, ids: []});
+        const k = [t.produk, t.variasi, t.ukuran].join('\u0001');
+        if (!groups.has(k)) groups.set(k, {produk: t.produk, variasi: t.variasi, ukuran: t.ukuran, ids: []});
         groups.get(k).ids.push(r.id);
+        if (r.produk !== t.produk) {
+          const e = ren.get(norm(r.produk)) || {from: r.produk, tos: new Set()};
+          e.tos.add(t.produk); ren.set(norm(r.produk), e);
+        }
         if (!(Number(r.hpp_satuan) > 0)) needHpp.push({id: r.id, produk: t.produk, variasi: t.variasi, ukuran: t.ukuran});
       });
     });
@@ -285,11 +291,27 @@
     let n = 0;
     for (const g of groups.values()) {
       for (const part of chunk(g.ids, IN_CHUNK)) {
-        must(await sb.from('transaksi').update({variasi: g.variasi, ukuran: g.ukuran}).in('id', part), 'Lengkapi variasi');
+        must(await sb.from('transaksi').update({produk: g.produk, variasi: g.variasi, ukuran: g.ukuran}).in('id', part), 'Sesuaikan data lama');
         n += part.length;
       }
     }
-    if (needHpp.length) await applyMasterHpp(needHpp);
+    // nama lama hanya dipakai untuk menyamakan Master HPP jika menunjuk ke SATU nama baru
+    const renames = [...ren.values()].filter(e => e.tos.size === 1).map(e => ({from: e.from, to: [...e.tos][0]}));
+    return {n, renames, needHpp};
+  }
+
+  // Entri Master HPP tanpa variasi bernama lama -> diganti ke nama produk di file
+  async function renameMaster(renames) {
+    const norm = s => String(s || '').trim().toLowerCase();
+    let n = 0;
+    for (const {from, to} of renames) {
+      const old = masterList.find(m => norm(m.produk) === norm(from) && !String(m.variasi || '').trim() && !String(m.ukuran || '').trim());
+      if (!old || old.produk === to) continue;
+      if (masterMap[keyOf(to, '', '')] && norm(from) !== norm(to)) continue;   // nama baru sudah ada
+      must(await sb.from('masterhpp').update({produk: to}).eq('id', old.id), 'Sesuaikan nama produk Master HPP');
+      n++;
+    }
+    if (n) await loadMaster();
     return n;
   }
 
@@ -298,28 +320,38 @@
     const file = input.files[0];
     if (!file) return;
     if (typeof XLSX === 'undefined') { msg('Pustaka Excel belum termuat. Periksa internet, lalu muat ulang halaman.', 'err'); return; }
-    btn.disabled = true;
+    btn.disabled = true; input.disabled = true;
     try {
       msg('Membaca file…');
       const p = (cache && cache.file === file) ? cache.p : parseWorkbook(await file.arrayBuffer());
       if (!p) { msg('Format file tidak dikenali. Pastikan ini file Order atau Penghasilan dari Shopee.', 'err'); return; }
       if (!p.out.length) { msg('Tidak ada data yang bisa diimpor dari file ini.', 'err'); return; }
 
-      msg('Menyinkronkan Master HPP…');
-      const syn = await syncMaster(p.out);
-      const synText = syn.added
-        ? ` ${syn.added} produk/varian baru ditambahkan ke Master HPP` + (syn.needHpp ? ` (${syn.needHpp} perlu diisi HPP-nya).` : '.') : '';
-      p.out.forEach(t => { if (!(t.hpp_satuan > 0)) t.hpp_satuan = findHpp(t.produk, t.variasi, t.ukuran); });
-
       msg(`Memeriksa ${p.out.length} baris…`);
       const exist = await findExistingOrderNos([...new Set(p.out.map(t => t.no_pesanan))]);
       const fresh = p.out.filter(t => !exist.has(String(t.no_pesanan)));
       const dup = p.out.length - fresh.length;
-      let filled = 0;
-      if (p.type === 'order' && dup) {
-        msg('Melengkapi warna dan ukuran pesanan lama…');
-        filled = await fillVariasi(p.out, exist);
+
+      let fv = {n: 0, renames: [], needHpp: []}, renamed = 0, syn = {added: 0, needHpp: 0}, warn = '';
+      try {
+        if (p.type === 'order' && dup) {
+          msg('Menyesuaikan pesanan lama dengan isi file…');
+          fv = await fillVariasi(p.out, exist);
+          renamed = await renameMaster(fv.renames);
+        }
+        msg('Menyinkronkan Master HPP…');
+        syn = await syncMaster(p.out);
+        if (fv.needHpp.length) await applyMasterHpp(fv.needHpp);
+      } catch (e) {
+        console.error(e);
+        warn = ` Peringatan: penyesuaian data lama/Master HPP belum lengkap (${friendlyError(e)}). Ulangi impor untuk melengkapinya.`;
       }
+      let synText = syn.added
+        ? ` ${syn.added} produk/varian baru ditambahkan ke Master HPP` + (syn.needHpp ? ` (${syn.needHpp} perlu diisi HPP-nya).` : '.') : '';
+      if (renamed) synText += ` ${renamed} nama produk di Master HPP disesuaikan.`;
+      synText += warn;
+      p.out.forEach(t => { if (!(t.hpp_satuan > 0)) t.hpp_satuan = findHpp(t.produk, t.variasi, t.ukuran); });
+      const filled = fv.n;
       if (!fresh.length) {
         if (filled) {
           markDirty();
@@ -363,6 +395,7 @@
       console.error(err);
       if (!err.handled) msg('Error: ' + friendlyError(err), 'err');
     } finally {
+      input.disabled = false;
       btn.disabled = !input.files.length;
     }
   }
