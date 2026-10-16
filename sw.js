@@ -4,7 +4,7 @@
  * - Supabase (data) : TIDAK PERNAH di-cache, supaya angka selalu asli
  * Naikkan VERSION jika Anda mengganti ikon atau file statis lain.
  */
-const VERSION    = 'v2';
+const VERSION    = 'v3';
 const SHELL_CACHE = 'shopee-shell-' + VERSION;
 const CDN_CACHE   = 'shopee-cdn-' + VERSION;
 const SCOPE_URL   = self.registration.scope;
@@ -13,6 +13,7 @@ const SHELL = [
   './',
   './manifest.json',
   './ios-install.js',
+  './import-tab.js',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-192.png',
@@ -78,6 +79,17 @@ async function networkFirstPage(req) {
   }
 }
 
+async function networkFirstAsset(req) {
+  const cache = await caches.open(SHELL_CACHE);
+  try {
+    const res = await withTimeout(fetch(req), 5000);
+    if (res && res.ok) cache.put(req, res.clone());
+    return res;
+  } catch (err) {
+    return (await cache.match(req)) || Response.error();
+  }
+}
+
 async function staleWhileRevalidate(req, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(req);
@@ -101,7 +113,7 @@ self.addEventListener('fetch', event => {
     return;
   }
   if (url.origin === self.location.origin) {
-    event.respondWith(staleWhileRevalidate(req, SHELL_CACHE));
+    event.respondWith(networkFirstAsset(req));
     return;
   }
   if (CDN_HOSTS.includes(url.hostname)) {
