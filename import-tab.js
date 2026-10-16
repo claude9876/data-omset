@@ -150,6 +150,35 @@
     checkFile(f);
   });
 
+  /* ---------- sinkron Master HPP ---------- */
+  // Produk/varian yang belum ada di Master HPP. HPP varian baru ikut HPP produk
+  // yang sama HANYA jika semua varian produk itu punya satu HPP yang sama;
+  // selain itu Rp 0 (harus diisi manual) supaya untung tidak salah tanpa terlihat.
+  function planMaster(rows) {
+    const norm = s => String(s || '').trim().toLowerCase();
+    const seen = new Set(), list = [];
+    rows.forEach(t => {
+      if (!t.produk) return;
+      const k = keyOf(t.produk, t.variasi, t.ukuran);
+      if (seen.has(k) || masterMap[k]) return;
+      seen.add(k);
+      const same = masterList.filter(m => norm(m.produk) === norm(t.produk));
+      if (!t.variasi && !t.ukuran && same.length) return;   // file Penghasilan: cukup satu entri per produk
+      const hs = new Set(same.filter(m => Number(m.hpp) > 0).map(m => Number(m.hpp)));
+      list.push({produk: t.produk, variasi: t.variasi || '', ukuran: t.ukuran || '', hpp: hs.size === 1 ? [...hs][0] : 0});
+    });
+    return list;
+  }
+  async function syncMaster(rows) {
+    const list = planMaster(rows);
+    if (!list.length) return {added: 0, needHpp: 0};
+    for (const part of chunk(list, INSERT_CHUNK)) {
+      must(await sb.from('masterhpp').upsert(part, {onConflict: 'produk,variasi,ukuran', ignoreDuplicates: true}), 'Tambah Master HPP');
+    }
+    await loadMaster();
+    return {added: list.length, needHpp: list.filter(x => !x.hpp).length};
+  }
+
   /* ---------- validasi warna & ukuran ---------- */
   const spaces = x => String(x || '').replace(/\s+/g, ' ').trim();
   function cleanColor(v) {
@@ -187,9 +216,11 @@
     if (badS.length) list.push(`Ukuran tidak dikenal: ${smp(badS)}`);
     typo.slice(0, 4).forEach(t => list.push('Mungkin salah ketik: ' + t));
     const head = `${rows.length} baris · ${orders} pesanan · ${colors.size} warna · ${sizes.size} ukuran.`;
+    const nm = planMaster(rows).length;
+    const mt = nm ? ` ${nm} produk/varian baru akan ditambahkan ke Master HPP.` : '';
     const fx = p.fixed ? ` ${p.fixed} baris dirapikan penulisannya otomatis.` : '';
-    if (!list.length) return `<div class="impmsg ok"><b>Warna dan ukuran valid.</b> ${esc(head + fx)}</div>`;
-    return `<div class="callout"><b>Periksa dulu sebelum disimpan.</b> ${esc(head + fx)}
+    if (!list.length) return `<div class="impmsg ok"><b>Warna dan ukuran valid.</b> ${esc(head + fx + mt)}</div>`;
+    return `<div class="callout"><b>Periksa dulu sebelum disimpan.</b> ${esc(head + fx + mt)}
       <ul style="margin:8px 0 8px 18px;padding:0">${list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       Data tetap bisa disimpan. Perbaikan bisa dilakukan lewat edit transaksi.</div>`;
   }
@@ -274,6 +305,12 @@
       if (!p) { msg('Format file tidak dikenali. Pastikan ini file Order atau Penghasilan dari Shopee.', 'err'); return; }
       if (!p.out.length) { msg('Tidak ada data yang bisa diimpor dari file ini.', 'err'); return; }
 
+      msg('Menyinkronkan Master HPP…');
+      const syn = await syncMaster(p.out);
+      const synText = syn.added
+        ? ` ${syn.added} produk/varian baru ditambahkan ke Master HPP` + (syn.needHpp ? ` (${syn.needHpp} perlu diisi HPP-nya).` : '.') : '';
+      p.out.forEach(t => { if (!(t.hpp_satuan > 0)) t.hpp_satuan = findHpp(t.produk, t.variasi, t.ukuran); });
+
       msg(`Memeriksa ${p.out.length} baris…`);
       const exist = await findExistingOrderNos([...new Set(p.out.map(t => t.no_pesanan))]);
       const fresh = p.out.filter(t => !exist.has(String(t.no_pesanan)));
@@ -286,12 +323,12 @@
       if (!fresh.length) {
         if (filled) {
           markDirty();
-          msg(`Semua pesanan sudah ada. ${filled} baris lama dilengkapi warna dan ukurannya.`, 'ok');
+          msg(`Semua pesanan sudah ada. ${filled} baris lama dilengkapi warna dan ukurannya.${synText}`, 'ok');
           toast(`${filled} baris dilengkapi warna dan ukuran.`, {ms: 5000});
           setPeriod('all'); loadVar();
           loadDay($('selDate').value, true).catch(() => {});
         } else {
-          msg('Semua pesanan di file ini sudah ada di database dan warna/ukurannya sudah lengkap. Tidak ada yang baru.', 'ok');
+          msg('Semua pesanan di file ini sudah ada di database dan warna/ukurannya sudah lengkap. Tidak ada yang baru.' + synText, 'ok');
         }
         return;
       }
@@ -312,6 +349,7 @@
       const noHpp = fresh.filter(t => t.status === 'Selesai' && !(t.hpp_satuan > 0)).length;
       let text = `Berhasil: ${saved} baris disimpan` + (dup ? `, ${dup} dilewati (sudah ada).` : '.');
       if (filled) text += ` ${filled} baris lama dilengkapi warna dan ukurannya.`;
+      text += synText;
       if (noHpp) text += ` ${noHpp} baris belum punya HPP, isi di tab Master HPP.`;
       msg(text, 'ok');
       toast(`Impor ${p.type === 'income' ? 'Penghasilan' : 'Order'}: ${saved} baris disimpan.`, {ms: 5000});
