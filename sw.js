@@ -4,7 +4,7 @@
  * - Supabase (data) : TIDAK PERNAH di-cache, supaya angka selalu asli
  * Naikkan VERSION jika Anda mengganti ikon atau file statis lain.
  */
-const VERSION    = 'v1';
+const VERSION    = 'v2';
 const SHELL_CACHE = 'shopee-shell-' + VERSION;
 const CDN_CACHE   = 'shopee-cdn-' + VERSION;
 const SCOPE_URL   = self.registration.scope;
@@ -13,13 +13,13 @@ const SHELL = [
   './',
   './manifest.json',
   './ios-install.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/favicon-32.png',
-  './icons/favicon-48.png'
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-192.png',
+  './icon-maskable-512.png',
+  './apple-touch-icon.png',
+  './favicon-32.png',
+  './favicon-48.png'
 ];
 // Pustaka yang dipakai index.html — disimpan agar aplikasi tetap bisa dibuka saat offline
 const CDN = [
