@@ -197,7 +197,7 @@
   }
   function validationHtml(p) {
     if (p.type !== 'order') {
-      return '<div class="impmsg">File Penghasilan tidak memuat warna dan ukuran. Untuk total per warna dan ukuran, impor juga file Order.</div>';
+      return '<div class="impmsg">File Penghasilan: biaya admin sebenarnya akan diisi ke pesanan yang sudah ada (dicocokkan lewat No. Pesanan). Warna dan ukuran tetap diambil dari file Order.</div>';
     }
     const rows = p.out, orders = new Set(rows.map(r => r.no_pesanan)).size;
     const colors = new Map(), sizes = new Set(), noC = [], noS = [], badS = [];
@@ -315,6 +315,62 @@
     return n;
   }
 
+  /* File Penghasilan -> perbarui pesanan yang SUDAH ada (cocok No. Pesanan):
+     biaya_admin diisi nilai sebenarnya; status Selesai -> Retur jika ada pengembalian
+     dana. Warna, ukuran, produk, harga, dan HPP tidak diubah. Aman diulang. */
+  async function applyIncome(fileRows, exist) {
+    const norm = s => String(s || '').trim().toLowerCase();
+    const byNo = new Map();
+    fileRows.forEach(t => {
+      const k = String(t.no_pesanan);
+      if (!exist.has(k)) return;
+      if (!byNo.has(k)) byNo.set(k, []);
+      byNo.get(k).push(t);
+    });
+    if (!byNo.size) return {n: 0, retur: 0};
+
+    const dbBy = new Map();
+    for (const part of chunk([...byNo.keys()], IN_CHUNK)) {
+      const rows = await fetchAll(
+        () => sb.from('transaksi').select('id, no_pesanan, produk, qty, status, biaya_admin')
+          .in('no_pesanan', part).order('id'), 'Cek pesanan untuk penghasilan');
+      rows.filter(r => r.status !== 'Dibatalkan').forEach(r => {
+        const k = String(r.no_pesanan);
+        if (!dbBy.has(k)) dbBy.set(k, []);
+        dbBy.get(k).push(r);
+      });
+    }
+
+    const groups = new Map();
+    let retur = 0;
+    byNo.forEach((list, no) => {
+      const cand = dbBy.get(no) || [];
+      list.forEach(t => {
+        let i = cand.findIndex(r => norm(r.produk) === norm(t.produk) && Number(r.qty) === t.qty);
+        if (i < 0) i = cand.findIndex(r => Number(r.qty) === t.qty);
+        if (i < 0) i = cand.findIndex(r => norm(r.produk) === norm(t.produk));
+        if (i < 0 && list.length === 1 && cand.length === 1) i = 0;
+        if (i < 0) return;
+        const r = cand.splice(i, 1)[0];
+        const status = r.status === 'Retur' ? 'Retur' : t.status;      // tidak membatalkan retur manual
+        if (Number(r.biaya_admin) === t.biaya_admin && r.status === status) return;   // sudah sama
+        const k = t.biaya_admin + '|' + status;
+        if (!groups.has(k)) groups.set(k, {biaya_admin: t.biaya_admin, status, ids: []});
+        groups.get(k).ids.push(r.id);
+        if (status === 'Retur' && r.status !== 'Retur') retur++;
+      });
+    });
+
+    let n = 0;
+    for (const g of groups.values()) {
+      for (const part of chunk(g.ids, IN_CHUNK)) {
+        must(await sb.from('transaksi').update({biaya_admin: g.biaya_admin, status: g.status}).in('id', part), 'Isi biaya admin');
+        n += part.length;
+      }
+    }
+    return {n, retur};
+  }
+
   async function runImport() {
     const input = $('i_file'), btn = $('i_go');
     const file = input.files[0];
@@ -332,12 +388,16 @@
       const fresh = p.out.filter(t => !exist.has(String(t.no_pesanan)));
       const dup = p.out.length - fresh.length;
 
-      let fv = {n: 0, renames: [], needHpp: []}, renamed = 0, syn = {added: 0, needHpp: 0}, warn = '';
+      let fv = {n: 0, renames: [], needHpp: []}, renamed = 0, syn = {added: 0, needHpp: 0}, inc = {n: 0, retur: 0}, warn = '';
       try {
         if (p.type === 'order' && dup) {
           msg('Menyesuaikan pesanan lama dengan isi file…');
           fv = await fillVariasi(p.out, exist);
           renamed = await renameMaster(fv.renames);
+        }
+        if (p.type === 'income' && dup) {
+          msg('Mengisi biaya admin sebenarnya…');
+          inc = await applyIncome(p.out, exist);
         }
         msg('Menyinkronkan Master HPP…');
         syn = await syncMaster(p.out);
@@ -349,18 +409,19 @@
       let synText = syn.added
         ? ` ${syn.added} produk/varian baru ditambahkan ke Master HPP` + (syn.needHpp ? ` (${syn.needHpp} perlu diisi HPP-nya).` : '.') : '';
       if (renamed) synText += ` ${renamed} nama produk di Master HPP disesuaikan.`;
+      if (inc.n) synText += ` Biaya admin sebenarnya diperbarui untuk ${inc.n} baris` + (inc.retur ? `, ${inc.retur} ditandai Retur.` : '.');
       synText += warn;
       p.out.forEach(t => { if (!(t.hpp_satuan > 0)) t.hpp_satuan = findHpp(t.produk, t.variasi, t.ukuran); });
       const filled = fv.n;
       if (!fresh.length) {
-        if (filled) {
+        if (filled || inc.n) {
           markDirty();
-          msg(`Semua pesanan sudah ada. ${filled} baris lama dilengkapi warna dan ukurannya.${synText}`, 'ok');
-          toast(`${filled} baris dilengkapi warna dan ukuran.`, {ms: 5000});
+          msg('Semua pesanan sudah ada.' + (filled ? ` ${filled} baris lama dilengkapi warna dan ukurannya.` : '') + synText, 'ok');
+          toast(`${filled || inc.n} baris lama diperbarui.`, {ms: 5000});
           setPeriod('all'); loadVar();
           loadDay($('selDate').value, true).catch(() => {});
         } else {
-          msg('Semua pesanan di file ini sudah ada di database dan warna/ukurannya sudah lengkap. Tidak ada yang baru.' + synText, 'ok');
+          msg((p.type === 'income' ? 'Semua pesanan di file ini sudah ada dan biaya adminnya sudah sesuai. Tidak ada yang baru.' : 'Semua pesanan di file ini sudah ada di database dan warna/ukurannya sudah lengkap. Tidak ada yang baru.') + synText, 'ok');
         }
         return;
       }
