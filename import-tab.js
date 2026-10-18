@@ -5,6 +5,7 @@
 (function () {
   'use strict';
   const DAYS = 14, URGENT = 7, WATCH = 14;   // jendela laju jual, batas "segera", batas "perhatikan" (hari)
+  const LOW = 3;                              // sisa stok (pcs) yang selalu dianggap "segera restok", walau tidak ada penjualan
   const SQL = `create table if not exists stok (
   id uuid primary key default gen_random_uuid(),
   produk text not null,
@@ -86,7 +87,7 @@ create policy "akses stok" on stok for all to anon, authenticated using (true) w
       it.left = it.row ? Number(it.row.stok_awal) - it.sold : null;
       it.days = (it.left !== null && it.rate > 0) ? it.left / it.rate : null;
       it.state = it.left === null ? 'belum' : it.left <= 0 ? 'habis'
-        : (it.days !== null && it.days <= URGENT) ? 'segera'
+        : (it.left <= LOW || (it.days !== null && it.days <= URGENT)) ? 'segera'
         : (it.days !== null && it.days <= WATCH) ? 'perhatian' : 'aman';
       return it;
     });
