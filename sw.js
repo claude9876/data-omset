@@ -4,7 +4,7 @@
  * - Supabase (data) : TIDAK PERNAH di-cache, supaya angka selalu asli
  * Naikkan VERSION jika Anda mengganti ikon atau file statis lain.
  */
-const VERSION    = 'v3';
+const VERSION    = 'v4';
 const SHELL_CACHE = 'shopee-shell-' + VERSION;
 const CDN_CACHE   = 'shopee-cdn-' + VERSION;
 const SCOPE_URL   = self.registration.scope;
